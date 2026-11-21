@@ -419,9 +419,12 @@ struct RadioHomeView: View {
                     .fixedSize()
                     .layoutPriority(1)
             }
-            .frame(maxWidth: .infinity)
+            // The navigation bar's principal slot sizes to its content.
+            // Request the available width here (not on the TextField), so the
+            // field receives the remainder after Close's fixed 44pt width.
+            .frame(minWidth: 0, idealWidth: 1000, maxWidth: .infinity)
         }
-        .frame(maxWidth: .infinity)
+        .frame(minWidth: 0, idealWidth: 1000, maxWidth: .infinity)
     }
 
     private var closeSearchButton: some View {
