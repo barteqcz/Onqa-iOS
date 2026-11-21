@@ -357,7 +357,20 @@ struct RadioHomeView: View {
     }
 
     private func openSearch() {
-        withAnimation(Self.searchAnimation) { searchIsActive = true }
+        // Let the toolbar finish its layout transition before presenting the
+        // keyboard. This avoids making the navigation bar negotiate two
+        // competing animations while the Close control is appearing.
+        withAnimation(
+            Self.searchAnimation,
+            completionCriteria: .logicallyComplete
+        ) {
+            searchIsActive = true
+        } completion: {
+            // The user may already have closed search while the transition
+            // was running. Do not restore focus in that case.
+            guard searchIsActive else { return }
+            searchFocused = true
+        }
     }
 
     private func closeSearch() {
@@ -394,9 +407,9 @@ struct RadioHomeView: View {
         .contentShape(Capsule())
         .onqaGlass(Capsule(), interactive: true)
         .glassEffectID("station-search-field", in: searchGlassNamespace)
-        .transition(.opacity.combined(with: .scale(scale: 0.92, anchor: .leading)))
-        // The field only exists while searching, so focus it as it appears.
-        .onAppear { searchFocused = true }
+        // A fade avoids the leading-edge scale that can look like the field
+        // is sliding in from the left as the navigation bar reflows.
+        .transition(.opacity)
     }
 
     /// Keep both controls in one glass container. Its spacing lets the
@@ -416,11 +429,15 @@ struct RadioHomeView: View {
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(colorScheme == .light ? Color.black : Color.white)
                 .frame(width: Self.toolbarControlHeight, height: Self.toolbarControlHeight)
-                .contentShape(Capsule())
         }
+        // Keep a full, stable 44pt hit target on the button itself rather
+        // than relying on the changing outline of its animated glass surface.
+        .frame(width: Self.toolbarControlHeight, height: Self.toolbarControlHeight)
+        .contentShape(Rectangle())
         .buttonStyle(.plain)
         .onqaGlass(Capsule(), interactive: true)
         .glassEffectID("station-search-close", in: searchGlassNamespace)
+        .zIndex(1)
         .accessibilityLabel("Close search")
     }
 
