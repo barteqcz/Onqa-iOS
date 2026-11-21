@@ -197,8 +197,10 @@ struct RadioHomeView: View {
             }
             .sharedBackgroundVisibility(.hidden)
 
-            leadingToolbarItem
-            trailingToolbarItem
+            if !searchIsActive {
+                leadingToolbarItem
+                trailingToolbarItem
+            }
         }
         .navigationDestination(isPresented: $showingSettings) {
             SettingsView(store: store)
@@ -349,9 +351,6 @@ struct RadioHomeView: View {
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(colorScheme == .light ? Color.black : Color.white)
         }
-        .opacity(searchIsActive ? 0 : 1)
-        .allowsHitTesting(!searchIsActive)
-        .accessibilityHidden(searchIsActive)
         .accessibilityLabel("Search stations…")
     }
 
@@ -467,9 +466,6 @@ struct RadioHomeView: View {
     private var trailingToolbarItem: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
             settingsToolbarButton
-                .opacity(searchIsActive ? 0 : 1)
-                .allowsHitTesting(!searchIsActive)
-                .accessibilityHidden(searchIsActive)
         }
     }
 
