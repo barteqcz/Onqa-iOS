@@ -411,8 +411,8 @@ struct RadioHomeView: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.top, 6)
-        .frame(height: Self.toolbarControlHeight + 6)
+        .padding(.top, 12)
+        .frame(height: Self.toolbarControlHeight + 12)
         .background {
             if store.settings.showLocationHeader {
                 (colorScheme == .light ? Palette.background : Color.black)
