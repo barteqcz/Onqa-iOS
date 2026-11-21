@@ -87,6 +87,7 @@ struct RadioHomeView: View {
     /// no backdrop of its own, so the list scrolls underneath the controls.
     @State private var searchIsActive = false
     @FocusState private var searchFocused: Bool
+    @Namespace private var searchGlassNamespace
     @State private var showingSettings = false
     /// The catalog card currently on screen. It trails the store's status so a
     /// fast download never flashes it (see `syncCatalogStatus`).
@@ -185,12 +186,12 @@ struct RadioHomeView: View {
             await syncCatalogStatus()
         }
         .toolbar {
-            // Both modes use the same native toolbar transition. The search
-            // field occupies the title slot; Close replaces Settings in place.
+            // While searching, keep the field and close action in one glass
+            // container so their interactive surfaces can blend together.
             ToolbarItem(placement: .principal) {
                 Group {
                     if searchIsActive {
-                        stationSearchField
+                        searchToolbarControls
                     } else {
                         Text("").accessibilityHidden(true)
                     }
@@ -200,9 +201,8 @@ struct RadioHomeView: View {
 
             if !searchIsActive {
                 leadingToolbarItem
+                trailingToolbarItem
             }
-
-            trailingToolbarItem
         }
         .navigationDestination(isPresented: $showingSettings) {
             SettingsView(store: store)
@@ -366,8 +366,7 @@ struct RadioHomeView: View {
         store.searchText = ""
     }
 
-    /// Search field shared by the native navigation bar and the custom
-    /// no-location header. Its capsule is a standalone Liquid Glass surface.
+    /// Search capsule shared by the toolbar's Liquid Glass container.
     private var stationSearchField: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
@@ -394,9 +393,35 @@ struct RadioHomeView: View {
         .frame(height: Self.toolbarControlHeight)
         .contentShape(Capsule())
         .onqaGlass(Capsule(), interactive: true)
+        .glassEffectID("station-search-field", in: searchGlassNamespace)
         .transition(.opacity.combined(with: .scale(scale: 0.92, anchor: .leading)))
         // The field only exists while searching, so focus it as it appears.
         .onAppear { searchFocused = true }
+    }
+
+    /// Keep both controls in one glass container. Its spacing lets the
+    /// individual glass surfaces blend when they move close to one another.
+    private var searchToolbarControls: some View {
+        GlassEffectContainer(spacing: 12) {
+            HStack(spacing: 18) {
+                stationSearchField
+                closeSearchButton
+            }
+        }
+    }
+
+    private var closeSearchButton: some View {
+        Button(action: closeSearch) {
+            Image(systemName: "xmark")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(colorScheme == .light ? Color.black : Color.white)
+                .frame(width: Self.toolbarControlHeight, height: Self.toolbarControlHeight)
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .onqaGlass(Capsule(), interactive: true)
+        .glassEffectID("station-search-close", in: searchGlassNamespace)
+        .accessibilityLabel("Close search")
     }
 
     @ToolbarContentBuilder
@@ -420,16 +445,7 @@ struct RadioHomeView: View {
     @ToolbarContentBuilder
     private var trailingToolbarItem: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
-            if searchIsActive {
-                Button(action: closeSearch) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(colorScheme == .light ? Color.black : Color.white)
-                }
-                .accessibilityLabel("Close search")
-            } else {
-                settingsToolbarButton
-            }
+            settingsToolbarButton
         }
     }
 

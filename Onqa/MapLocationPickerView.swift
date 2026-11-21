@@ -118,9 +118,10 @@ struct MapLocationPickerView: View {
 
     var body: some View {
         Map(position: $position)
-        // Track MapKit's visible center as the map responds to gestures
-        // and to available-space changes, such as the keyboard appearing.
-        .onMapCameraChange(frequency: .continuous) { context in
+        // Publish the camera center once a gesture/animation settles. Updating
+        // SwiftUI state for every camera frame causes needless map re-layout
+        // while panning and during keyboard transitions.
+        .onMapCameraChange(frequency: .onEnd) { context in
             let updatedCenter = context.region.center
             center = updatedCenter
 
@@ -157,6 +158,18 @@ struct MapLocationPickerView: View {
         // the keyboard is visible. The system search field in the bottom
         // toolbar remains keyboard-aware on its own.
         .ignoresSafeArea(.keyboard, edges: .bottom)
+        .overlay(alignment: .bottom) {
+            if citySearchPresented,
+               !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+               !citySearch.results.isEmpty {
+                citySuggestionsPanel
+                    .frame(maxWidth: 560)
+                    .padding(.horizontal, 16)
+                    // Keep the card above the native bottom search/confirm toolbar.
+                    .padding(.bottom, 76)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
         .searchable(
             text: $searchText,
             isPresented: $citySearchPresented,
@@ -164,22 +177,6 @@ struct MapLocationPickerView: View {
         )
         .textInputAutocapitalization(.words)
         .autocorrectionDisabled()
-        .searchSuggestions {
-            ForEach(citySearch.results) { result in
-                Button {
-                    Task { await select(result) }
-                } label: {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(result.title)
-                        if !result.subtitle.isEmpty {
-                            Text(result.subtitle)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-            }
-        }
         .toolbar {
             // Native iOS 26 pattern: the system search field sits in the
             // bottom toolbar with the confirm button beside it.
@@ -203,24 +200,48 @@ struct MapLocationPickerView: View {
         }
         .navigationTitle("Pick location")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
         .navigationBarBackButtonHidden(requiresOnboardingConfirmation)
         .onChange(of: searchText) { _, query in
             citySearch.update(query: query)
         }
-        // Keep a translucent blurred navigation header when the city search
-        // is presented or dismissed, regardless of the parent screen's toolbar state.
+        // Keep the navigation header in the hierarchy while the keyboard
+        // opens; the search UI belongs to the bottom toolbar, not the header.
         .toolbarBackground(.regularMaterial, for: .navigationBar)
         .toolbarBackgroundVisibility(.visible, for: .navigationBar)
-        // The whole navigation bar steps aside while the city search is
-        // open; only a system material strip stays behind the status bar.
-        .toolbarVisibility(citySearchPresented ? .hidden : .visible, for: .navigationBar)
-        .safeAreaInset(edge: .top, spacing: 0) {
-            Color.clear
-                .frame(height: 0)
-                .background(.regularMaterial)
-                .opacity(citySearchPresented ? 1 : 0)
-        }
         .animation(.snappy(duration: 0.24), value: citySearchPresented)
+        .animation(.snappy(duration: 0.22), value: citySearch.results.map(\.id))
+    }
+
+    private var citySuggestionsPanel: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(citySearch.results.prefix(5))) { result in
+                Button {
+                    Task { await select(result) }
+                } label: {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(result.title)
+                            .font(.body.weight(.medium))
+                            .foregroundStyle(.primary)
+                        if !result.subtitle.isEmpty {
+                            Text(result.subtitle)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 11)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(6)
+        .fixedSize(horizontal: false, vertical: true)
+        .onqaGlass(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .accessibilityLabel("Location suggestions")
     }
 
     private func select(_ result: CitySearchResult) async {
@@ -233,9 +254,11 @@ struct MapLocationPickerView: View {
         hasSelectedLocation = true
         searchText = ""
 
-        // Set the camera target before dismissing the keyboard so MapKit
-        // retains the selected coordinate as the map returns to full height.
-        recenterMap(on: coordinate)
+        // Retarget smoothly before dismissing the keyboard so the map settles
+        // on the selected place without a viewport-driven jump.
+        withAnimation(.smooth(duration: 0.45)) {
+            recenterMap(on: coordinate)
+        }
         citySearchPresented = false
     }
 
