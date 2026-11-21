@@ -199,8 +199,10 @@ struct RadioHomeView: View {
 
             if !searchIsActive {
                 leadingToolbarItem
-                trailingToolbarItem
             }
+            // Always mounted: Settings when idle, Close while searching, so
+            // Close takes over the exact slot Settings occupies.
+            trailingToolbarItem
         }
         .navigationDestination(isPresented: $showingSettings) {
             SettingsView(store: store)
@@ -396,9 +398,6 @@ struct RadioHomeView: View {
             }
         }
         .padding(.horizontal, 14)
-        // The parent HStack assigns this field only the width left over
-        // after the fixed-size Close button, preventing its hit area from
-        // extending underneath the neighboring control.
         .frame(maxWidth: .infinity)
         .frame(height: Self.toolbarControlHeight)
         .contentShape(Capsule())
@@ -406,22 +405,15 @@ struct RadioHomeView: View {
         .glassEffectID("station-search-field", in: searchGlassNamespace)
     }
 
-    /// Keep both controls in one glass container. Its spacing lets the
-    /// individual glass surfaces blend when they move close to one another.
+    /// The search field fills the navigation bar's principal slot. Close
+    /// lives in the trailing toolbar item (see `trailingToolbarItem`).
     private var searchToolbarControls: some View {
         GlassEffectContainer(spacing: 12) {
-            HStack(spacing: 12) {
-                stationSearchField
-                    .frame(maxWidth: .infinity)
-                    .layoutPriority(0)
-                closeSearchButton
-                    .fixedSize()
-                    .layoutPriority(1)
-            }
-            // The navigation bar's principal slot sizes to its content.
-            // Request the available width here (not on the TextField), so the
-            // field receives the remainder after Close's fixed 44pt width.
-            .frame(minWidth: 0, idealWidth: 1000, maxWidth: .infinity)
+            stationSearchField
+                // The navigation bar's principal slot sizes to its content.
+                // Request the available width so the field takes everything
+                // left of the trailing Close button.
+                .frame(minWidth: 0, idealWidth: 1000, maxWidth: .infinity)
         }
         .frame(minWidth: 0, idealWidth: 1000, maxWidth: .infinity)
     }
@@ -431,16 +423,7 @@ struct RadioHomeView: View {
             Image(systemName: "xmark")
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(colorScheme == .light ? Color.black : Color.white)
-                .frame(width: Self.toolbarControlHeight, height: Self.toolbarControlHeight)
         }
-        // Keep a full, stable 44pt hit target on the button itself rather
-        // than relying on the changing outline of its animated glass surface.
-        .frame(width: Self.toolbarControlHeight, height: Self.toolbarControlHeight)
-        .contentShape(Rectangle())
-        .buttonStyle(.plain)
-        .onqaGlass(Capsule(), interactive: true)
-        .glassEffectID("station-search-close", in: searchGlassNamespace)
-        .zIndex(1)
         .accessibilityLabel("Close search")
     }
 
@@ -465,7 +448,11 @@ struct RadioHomeView: View {
     @ToolbarContentBuilder
     private var trailingToolbarItem: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
-            settingsToolbarButton
+            if searchIsActive {
+                closeSearchButton
+            } else {
+                settingsToolbarButton
+            }
         }
     }
 
