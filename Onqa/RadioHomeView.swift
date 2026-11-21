@@ -186,23 +186,19 @@ struct RadioHomeView: View {
             await syncCatalogStatus()
         }
         .toolbar {
-            // While searching, keep the field and close action in one glass
-            // container so their interactive surfaces can blend together.
+            // Keep the complete toolbar hierarchy mounted in both states.
+            // Only opacity and hit testing change; UIKit never has to replace
+            // the navigation-bar items while the search field is appearing.
             ToolbarItem(placement: .principal) {
-                Group {
-                    if searchIsActive {
-                        searchToolbarControls
-                    } else {
-                        Text("").accessibilityHidden(true)
-                    }
-                }
+                searchToolbarControls
+                    .opacity(searchIsActive ? 1 : 0)
+                    .allowsHitTesting(searchIsActive)
+                    .accessibilityHidden(!searchIsActive)
             }
             .sharedBackgroundVisibility(.hidden)
 
-            if !searchIsActive {
-                leadingToolbarItem
-                trailingToolbarItem
-            }
+            leadingToolbarItem
+            trailingToolbarItem
         }
         .navigationDestination(isPresented: $showingSettings) {
             SettingsView(store: store)
@@ -353,29 +349,31 @@ struct RadioHomeView: View {
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(colorScheme == .light ? Color.black : Color.white)
         }
+        .opacity(searchIsActive ? 0 : 1)
+        .allowsHitTesting(!searchIsActive)
+        .accessibilityHidden(searchIsActive)
         .accessibilityLabel("Search stations…")
     }
 
     private func openSearch() {
-        // Let the toolbar finish its layout transition before presenting the
-        // keyboard. This avoids making the navigation bar negotiate two
-        // competing animations while the Close control is appearing.
-        withAnimation(
-            Self.searchAnimation,
-            completionCriteria: .logicallyComplete
-        ) {
+        // Ignore repeated taps during activation. The toolbar stays mounted,
+        // so reopening the same state must not restart its animation.
+        guard !searchIsActive else { return }
+
+        withAnimation(Self.searchAnimation) {
             searchIsActive = true
-        } completion: {
-            // The user may already have closed search while the transition
-            // was running. Do not restore focus in that case.
-            guard searchIsActive else { return }
-            searchFocused = true
         }
+        // Focus immediately; the toolbar hierarchy and Close hit target do
+        // not change when the keyboard is presented.
+        searchFocused = true
     }
 
     private func closeSearch() {
+        guard searchIsActive else { return }
         searchFocused = false
-        withAnimation(Self.searchAnimation) { searchIsActive = false }
+        withAnimation(Self.searchAnimation) {
+            searchIsActive = false
+        }
         store.searchText = ""
     }
 
@@ -389,7 +387,6 @@ struct RadioHomeView: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .submitLabel(.search)
-                .layoutPriority(1)
             if !store.searchText.isEmpty {
                 Button { store.searchText = "" } label: {
                     Image(systemName: "xmark.circle.fill")
@@ -400,27 +397,31 @@ struct RadioHomeView: View {
             }
         }
         .padding(.horizontal, 14)
-        // The title slot sizes to its content, so ask for a very large ideal
-        // width; the bar clamps it to whatever space is free.
-        .frame(minWidth: 0, idealWidth: 1000, maxWidth: .infinity)
+        // The parent HStack assigns this field only the width left over
+        // after the fixed-size Close button, preventing its hit area from
+        // extending underneath the neighboring control.
+        .frame(maxWidth: .infinity)
         .frame(height: Self.toolbarControlHeight)
         .contentShape(Capsule())
         .onqaGlass(Capsule(), interactive: true)
         .glassEffectID("station-search-field", in: searchGlassNamespace)
-        // A fade avoids the leading-edge scale that can look like the field
-        // is sliding in from the left as the navigation bar reflows.
-        .transition(.opacity)
     }
 
     /// Keep both controls in one glass container. Its spacing lets the
     /// individual glass surfaces blend when they move close to one another.
     private var searchToolbarControls: some View {
         GlassEffectContainer(spacing: 12) {
-            HStack(spacing: 18) {
+            HStack(spacing: 12) {
                 stationSearchField
+                    .frame(maxWidth: .infinity)
+                    .layoutPriority(0)
                 closeSearchButton
+                    .fixedSize()
+                    .layoutPriority(1)
             }
+            .frame(maxWidth: .infinity)
         }
+        .frame(maxWidth: .infinity)
     }
 
     private var closeSearchButton: some View {
@@ -463,6 +464,9 @@ struct RadioHomeView: View {
     private var trailingToolbarItem: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {
             settingsToolbarButton
+                .opacity(searchIsActive ? 0 : 1)
+                .allowsHitTesting(!searchIsActive)
+                .accessibilityHidden(searchIsActive)
         }
     }
 
