@@ -82,9 +82,9 @@ struct RadioHomeView: View {
     // The environment locale follows the system's Measurement System, so cards
     // update if it is changed in Settings while the app is running.
     @Environment(\.locale) private var locale
-    /// Search uses the native navigation bar when the location header is on.
-    /// Otherwise, an in-content search row replaces the navigation bar. It has
-    /// no backdrop of its own, so the list scrolls underneath the controls.
+    /// Search is a row pinned to the top of the screen, just under the native
+    /// navigation bar. It is shown only while searching and holds the field
+    /// and a Cancel button in one glass container.
     @State private var searchIsActive = false
     @FocusState private var searchFocused: Bool
     @Namespace private var searchGlassNamespace
@@ -158,6 +158,12 @@ struct RadioHomeView: View {
                 stationList
             }
         }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if searchIsActive {
+                searchRow
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
         // Measured inside the keyboard-ignoring modifier below, so the keyboard
         // never inflates the inset.
         .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.bottom } action: {
@@ -181,27 +187,16 @@ struct RadioHomeView: View {
         .navigationTitle("Station List")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
-        // The title stays set for the native back-button menu but is not
-        // drawn, so it cannot take space from the search row.
         .toolbar(removing: .title)
         .modifier(HomeToolbarBackground(showLocationHeader: store.settings.showLocationHeader, colorScheme: colorScheme))
         .task(id: store.catalogStatus) {
             await syncCatalogStatus()
         }
         .toolbar {
-            // One always-mounted leading item: the native search button while
-            // idle, the whole search row (field + Close, in one glass
-            // container) while searching. While searching the trailing Settings
-            // item is gone, so this item can span the full bar width and Close
-            // lands at the trailing edge, where Settings was.
-            ToolbarItem(placement: .topBarLeading) {
-                leadingToolbarContent
-            }
-            .sharedBackgroundVisibility(searchIsActive ? .hidden : .automatic)
-
             if !searchIsActive {
-                trailingToolbarItem
+                leadingToolbarItem
             }
+            trailingToolbarItem
         }
         .navigationDestination(isPresented: $showingSettings) {
             SettingsView(store: store)
@@ -384,7 +379,6 @@ struct RadioHomeView: View {
                 .foregroundStyle(.secondary)
             TextField("Search stations…", text: $store.searchText)
                 .focused($searchFocused)
-                // The field is mounted only while searching now.
                 .onAppear { searchFocused = true }
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
@@ -399,9 +393,6 @@ struct RadioHomeView: View {
             }
         }
         .padding(.horizontal, 14)
-        // The parent HStack assigns this field only the width left over
-        // after the fixed-size Close button, preventing its hit area from
-        // extending underneath the neighboring control.
         .frame(maxWidth: .infinity)
         .frame(height: Self.toolbarControlHeight)
         .contentShape(Capsule())
@@ -409,24 +400,24 @@ struct RadioHomeView: View {
         .glassEffectID("station-search-field", in: searchGlassNamespace)
     }
 
-    /// Keep both controls in one glass container. Its spacing lets the
-    /// individual glass surfaces blend when they move close to one another.
-    private var searchToolbarControls: some View {
+    /// Field and Cancel share one glass container, so their surfaces blend
+    /// when pressed or dragged close together. The field takes all the width
+    /// left of Cancel.
+    private var searchRow: some View {
         GlassEffectContainer(spacing: 12) {
             HStack(spacing: 12) {
                 stationSearchField
-                    .frame(maxWidth: .infinity)
-                    .layoutPriority(0)
                 closeSearchButton
-                    .fixedSize()
-                    .layoutPriority(1)
             }
-            // The navigation bar sizes toolbar items to their content.
-            // Request the available width here (not on the TextField), so the
-            // field receives the remainder after Close's fixed 44pt width.
-            .frame(minWidth: 0, idealWidth: 1000, maxWidth: .infinity)
         }
-        .frame(minWidth: 0, idealWidth: 1000, maxWidth: .infinity)
+        .padding(.horizontal, 16)
+        .padding(.top, 6)
+        .frame(height: Self.toolbarControlHeight + 6)
+        .background {
+            if store.settings.showLocationHeader {
+                (colorScheme == .light ? Palette.background : Color.black)
+            }
+        }
     }
 
     private var closeSearchButton: some View {
@@ -447,11 +438,9 @@ struct RadioHomeView: View {
         .accessibilityLabel("Close search")
     }
 
-    @ViewBuilder
-    private var leadingToolbarContent: some View {
-        if searchIsActive {
-            searchToolbarControls
-        } else {
+    @ToolbarContentBuilder
+    private var leadingToolbarItem: some ToolbarContent {
+        ToolbarItem(placement: .topBarLeading) {
             searchToolbarButton
         }
     }
