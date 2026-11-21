@@ -82,10 +82,12 @@ struct RadioHomeView: View {
     // The environment locale follows the system's Measurement System, so cards
     // update if it is changed in Settings while the app is running.
     @Environment(\.locale) private var locale
-    /// Search is the system's toolbar search: a minimized button that expands
-    /// into a full-width field with the system Close button. This mirrors
-    /// whether it is presented so the location header can get out of the way.
+    /// Search uses the native navigation bar when the location header is on.
+    /// Otherwise, an in-content search row replaces the navigation bar. It has
+    /// no backdrop of its own, so the list scrolls underneath the controls.
     @State private var searchIsActive = false
+    @FocusState private var searchFocused: Bool
+    @Namespace private var searchGlassNamespace
     @State private var showingSettings = false
     /// The catalog card currently on screen. It trails the store's status so a
     /// fast download never flashes it (see `syncCatalogStatus`).
@@ -124,6 +126,12 @@ struct RadioHomeView: View {
 
     /// Small scroll-content inset keeps the first station's outline fully visible.
     private static let stationListTopMargin: CGFloat = 5
+
+    /// Height of the native Liquid Glass toolbar buttons (search, settings).
+    /// The search field and its close button use the same height.
+    private static let toolbarControlHeight: CGFloat = 44
+
+    private static let searchAnimation: Animation = .smooth(duration: 0.32)
 
     private var stationColumns: [GridItem] {
         [GridItem(.adaptive(minimum: 320), spacing: Self.stationSpacing, alignment: .top)]
@@ -173,35 +181,27 @@ struct RadioHomeView: View {
         .navigationTitle("Station List")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
+        // The title stays set for the native back-button menu but is not
+        // drawn, so it cannot take space from the search row.
+        .toolbar(removing: .title)
         .modifier(HomeToolbarBackground(showLocationHeader: store.settings.showLocationHeader, colorScheme: colorScheme))
         .task(id: store.catalogStatus) {
             await syncCatalogStatus()
         }
-        .searchable(
-            text: $store.searchText,
-            isPresented: $searchIsActive,
-            placement: .toolbar,
-            prompt: Text("Search stations…")
-        )
-        .searchToolbarBehavior(.minimize)
-        .autocorrectionDisabled()
-        .textInputAutocapitalization(.never)
-        .onChange(of: searchIsActive) { _, isActive in
-            if !isActive { store.searchText = "" }
-        }
         .toolbar {
-            // Keeps the navigation title off the home screen.
-            ToolbarItem(placement: .principal) {
-                Color.clear.frame(width: 1, height: 1).accessibilityHidden(true)
+            // One always-mounted leading item: the native search button while
+            // idle, the whole search row (field + Close, in one glass
+            // container) while searching. While searching the trailing Settings
+            // item is gone, so this item can span the full bar width and Close
+            // lands at the trailing edge, where Settings was.
+            ToolbarItem(placement: .topBarLeading) {
+                leadingToolbarContent
             }
-            .sharedBackgroundVisibility(.hidden)
+            .sharedBackgroundVisibility(searchIsActive ? .hidden : .automatic)
 
-            // The system search button keeps the old top-left spot; once
-            // expanded, the system field fills the bar and Close takes the
-            // trailing edge, where Settings sits while idle.
-            DefaultToolbarItem(kind: .search, placement: .topBarLeading)
-
-            trailingToolbarItem
+            if !searchIsActive {
+                trailingToolbarItem
+            }
         }
         .navigationDestination(isPresented: $showingSettings) {
             SettingsView(store: store)
@@ -339,6 +339,120 @@ struct RadioHomeView: View {
             if store.settings.showLocationHeader {
                 (colorScheme == .light ? Palette.background : Color.black).ignoresSafeArea(edges: .top)
             }
+        }
+    }
+
+    // Native toolbar Button at the original top-left position. It swaps the
+    // location header for the search field at the top.
+    private var searchToolbarButton: some View {
+        Button {
+            openSearch()
+        } label: {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(colorScheme == .light ? Color.black : Color.white)
+        }
+        .accessibilityLabel("Search stations…")
+    }
+
+    private func openSearch() {
+        // Ignore repeated taps during activation. The toolbar stays mounted,
+        // so reopening the same state must not restart its animation.
+        guard !searchIsActive else { return }
+
+        withAnimation(Self.searchAnimation) {
+            searchIsActive = true
+        }
+        // Focus immediately; the toolbar hierarchy and Close hit target do
+        // not change when the keyboard is presented.
+        searchFocused = true
+    }
+
+    private func closeSearch() {
+        guard searchIsActive else { return }
+        searchFocused = false
+        withAnimation(Self.searchAnimation) {
+            searchIsActive = false
+        }
+        store.searchText = ""
+    }
+
+    /// Search capsule shared by the toolbar's Liquid Glass container.
+    private var stationSearchField: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+            TextField("Search stations…", text: $store.searchText)
+                .focused($searchFocused)
+                // The field is mounted only while searching now.
+                .onAppear { searchFocused = true }
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .submitLabel(.search)
+            if !store.searchText.isEmpty {
+                Button { store.searchText = "" } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Clear search")
+            }
+        }
+        .padding(.horizontal, 14)
+        // The parent HStack assigns this field only the width left over
+        // after the fixed-size Close button, preventing its hit area from
+        // extending underneath the neighboring control.
+        .frame(maxWidth: .infinity)
+        .frame(height: Self.toolbarControlHeight)
+        .contentShape(Capsule())
+        .onqaGlass(Capsule(), interactive: true)
+        .glassEffectID("station-search-field", in: searchGlassNamespace)
+    }
+
+    /// Keep both controls in one glass container. Its spacing lets the
+    /// individual glass surfaces blend when they move close to one another.
+    private var searchToolbarControls: some View {
+        GlassEffectContainer(spacing: 12) {
+            HStack(spacing: 12) {
+                stationSearchField
+                    .frame(maxWidth: .infinity)
+                    .layoutPriority(0)
+                closeSearchButton
+                    .fixedSize()
+                    .layoutPriority(1)
+            }
+            // The navigation bar sizes toolbar items to their content.
+            // Request the available width here (not on the TextField), so the
+            // field receives the remainder after Close's fixed 44pt width.
+            .frame(minWidth: 0, idealWidth: 1000, maxWidth: .infinity)
+        }
+        .frame(minWidth: 0, idealWidth: 1000, maxWidth: .infinity)
+    }
+
+    private var closeSearchButton: some View {
+        Button(action: closeSearch) {
+            Image(systemName: "xmark")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(colorScheme == .light ? Color.black : Color.white)
+                .frame(width: Self.toolbarControlHeight, height: Self.toolbarControlHeight)
+        }
+        // Keep a full, stable 44pt hit target on the button itself rather
+        // than relying on the changing outline of its animated glass surface.
+        .frame(width: Self.toolbarControlHeight, height: Self.toolbarControlHeight)
+        .contentShape(Rectangle())
+        .buttonStyle(.plain)
+        .onqaGlass(Capsule(), interactive: true)
+        .glassEffectID("station-search-close", in: searchGlassNamespace)
+        .zIndex(1)
+        .accessibilityLabel("Close search")
+    }
+
+    @ViewBuilder
+    private var leadingToolbarContent: some View {
+        if searchIsActive {
+            searchToolbarControls
+        } else {
+            searchToolbarButton
         }
     }
 
