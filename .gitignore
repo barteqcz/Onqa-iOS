@@ -1,0 +1,10 @@
+.DS_Store
+DerivedData/
+build/
+build-device/
+build-simulator/
+*.xcuserstate
+xcuserdata/
+*.xcodeproj
+Onqa/Info.plist
+*.log

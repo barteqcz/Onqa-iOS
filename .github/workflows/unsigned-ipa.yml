@@ -1,0 +1,89 @@
+name: Unsigned iOS IPA
+
+on:
+  # Run manually from the Actions tab ("Run workflow").
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: unsigned-ipa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ipa:
+    name: Build unsigned IPA
+    runs-on: xcode-27
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Install XcodeGen
+        run: |
+          if ! command -v xcodegen >/dev/null 2>&1; then
+            brew install xcodegen
+          fi
+          xcodegen --version
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build unsigned iOS app
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project Onqa.xcodeproj \
+            -scheme Onqa \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build-unsigned \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build 2>&1 | tee xcodebuild-ipa.log
+
+      - name: Print compiler errors (if any)
+        if: failure()
+        run: |
+          grep -E "error:|BUILD FAILED" xcodebuild-ipa.log | sort -u | head -60 || true
+
+      - name: Package as unsigned IPA
+        run: |
+          set -euo pipefail
+          APP_PATH="build-unsigned/Build/Products/Release-iphoneos/Onqa.app"
+          test -d "$APP_PATH"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP_PATH/Info.plist" | grep -Fx 'com.barteqcz.onqa'
+
+          rm -rf ipa-staging Onqa-unsigned.ipa
+          mkdir -p ipa-staging/Payload
+          ditto "$APP_PATH" ipa-staging/Payload/Onqa.app
+          (
+            cd ipa-staging
+            /usr/bin/zip -qry ../Onqa-unsigned.ipa Payload
+          )
+          test -s Onqa-unsigned.ipa
+          unzip -l Onqa-unsigned.ipa | head -40
+
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v7
+        with:
+          name: Onqa-unsigned-IPA
+          path: Onqa-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: xcodebuild-ipa-log
+          path: xcodebuild-ipa.log
+          if-no-files-found: ignore
+          retention-days: 7

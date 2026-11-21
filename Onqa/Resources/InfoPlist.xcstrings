@@ -1,0 +1,220 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "NSLocationWhenInUseUsageDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onqa uses your location to find nearby radio stations and switch stations as you travel."
+          }
+        },
+        "be": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onqa выкарыстоўвае вашу лакацыю, каб знаходзіць блізкія радыёперадатчыкі і пераключацца на бліжэйшыя падчас руху. Месцазнаходжанне можна задаць уручную."
+          }
+        },
+        "bg": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onqa използва местоположението ви, за да намира близки радиопредаватели и да превключва към по-близки, докато пътувате. Можете да зададете местоположение и ръчно."
+          }
+        },
+        "bs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onqa koristi vašu lokaciju za pronalaženje obližnjih radio-odašiljača i prebacivanje na bliže tokom putovanja. Lokaciju možete odabrati i ručno."
+          }
+        },
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onqa používá vaši polohu k vyhledání blízkých rozhlasových vysílačů a přepínání na bližší během cestování. Polohu můžete zvolit také ručně."
+          }
+        },
+        "da": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onqa bruger din lokation til at finde radiosendere i nærheden og skifte til tættere sendere, mens du rejser. Du kan også vælge en lokation manuelt."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onqa verwendet deinen Standort, um nahe Radiosender zu finden und unterwegs zu näheren Sendern zu wechseln. Du kannst den Standort auch manuell wählen."
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Το Onqa χρησιμοποιεί την τοποθεσία σας για να βρίσκει κοντινούς ραδιοφωνικούς πομπούς και να αλλάζει σε πιο κοντινούς όσο μετακινείστε. Μπορείτε επίσης να ορίσετε τοποθεσία χειροκίνητα."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onqa usa tu ubicación para encontrar transmisores cercanos y cambiar a otros más próximos mientras viajas. También puedes elegir una ubicación manualmente."
+          }
+        },
+        "et": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onqa kasutab sinu asukohta lähedal asuvate raadiosaatjate leidmiseks ja reisi ajal lähemale saatjale lülitumiseks. Asukoha saad valida ka käsitsi."
+          }
+        },
+        "fi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onqa käyttää sijaintiasi lähellä olevien radiolähettimien löytämiseen ja lähempään lähettimeen vaihtamiseen matkan aikana. Voit myös valita sijainnin manuaalisesti."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onqa utilise votre position pour trouver les émetteurs proches et passer à un émetteur plus près de vous pendant vos déplacements. Vous pouvez aussi choisir une position manuellement."
+          }
+        },
+        "ga": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Úsáideann Onqa do shuíomh chun tarchuradóirí raidió in aice láimhe a aimsiú agus aistriú chuig ceann níos gaire agus tú ag taisteal. Is féidir suíomh a roghnú de láimh freisin."
+          }
+        },
+        "hr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onqa koristi vašu lokaciju za pronalaženje obližnjih radijskih odašiljača i prebacivanje na bliže dok putujete. Lokaciju možete odabrati i ručno."
+          }
+        },
+        "hu": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Az Onqa a helyzeted alapján közeli rádióadókat keres, és utazás közben közelebbi adóra vált. A helyet kézzel is megadhatod."
+          }
+        },
+        "is": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onqa notar staðsetningu þína til að finna nálæga útvarpssenda og skipta yfir á næsta sendi á ferðinni. Þú getur líka valið staðsetningu handvirkt."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onqa usa la tua posizione per trovare trasmettitori vicini e passare a quelli più vicini mentre viaggi. Puoi anche scegliere una posizione manualmente."
+          }
+        },
+        "lb": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onqa benotzt däi Standuert, fir Radiossender an der Géigend ze fannen an ënnerwee op e méi noe Sender ze wiesselen. Du kanns de Standuert och manuell auswielen."
+          }
+        },
+        "lt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„Onqa“ naudoja jūsų vietą netoliese esantiems radijo siųstuvams rasti ir keliaujant persijungti į artimesnius. Vietą galite pasirinkti ir rankiniu būdu."
+          }
+        },
+        "lv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onqa izmanto jūsu atrašanās vietu, lai atrastu tuvumā esošus radio raidītājus un ceļā pārslēgtos uz tuvākiem. Atrašanās vietu varat izvēlēties arī manuāli."
+          }
+        },
+        "mk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onqa ја користи вашата локација за да најде блиски радиопредаватели и да се префрли на поблиски додека патувате. Локацијата можете да ја изберете и рачно."
+          }
+        },
+        "mt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onqa juża l-pożizzjoni tiegħek biex isib trasmettituri fil-qrib u jaqleb għal wieħed eqreb waqt li tivvjaġġa. Tista’ tagħżel pożizzjoni manwalment ukoll."
+          }
+        },
+        "nb": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onqa bruker posisjonen din til å finne radiosendere i nærheten og bytte til nærmere sendere mens du reiser. Du kan også velge posisjon manuelt."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onqa gebruikt je locatie om zenders in de buurt te vinden en onderweg over te schakelen naar een zender dichterbij. Je kunt ook handmatig een locatie kiezen."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onqa używa lokalizacji, aby znaleźć pobliskie nadajniki i przełączać się na bliższe podczas podróży. Możesz też ustawić ją ręcznie."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Onqa usa a sua localização para encontrar emissores próximos e mudar para os mais próximos durante a viagem. Também pode escolher uma localização manualmente."
+          }
+        },
+        "rm": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onqa dovra tia posiziun per chattar emettaders da radio datiers e midar sin in pli datiers durant il viadi. Ti pos er tscherner ina posiziun a maun."
+          }
+        },
+        "ro": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onqa folosește locația ta pentru a găsi emițătoare apropiate și pentru a trece la unele mai apropiate în timpul călătoriei. Poți alege și manual o locație."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onqa používa vašu polohu na vyhľadanie blízkych vysielačov a prepínanie na bližšie počas cestovania. Polohu môžete zvoliť aj manuálne."
+          }
+        },
+        "sl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onqa uporablja vašo lokacijo za iskanje bližnjih oddajnikov in preklapljanje na bližje med potovanjem. Lokacijo lahko izberete tudi ročno."
+          }
+        },
+        "sq": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onqa përdor vendndodhjen tënde për të gjetur transmetues pranë dhe për të kaluar te më të afërtit gjatë udhëtimit. Mund ta zgjedhësh vendndodhjen edhe manualisht."
+          }
+        },
+        "sr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onqa користи вашу локацију за проналажење оближњих предајника и прелазак на ближе током путовања. Локацију можете изабрати и ручно."
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onqa använder din plats för att hitta närliggande radiosändare och byta till närmare sändare när du reser. Du kan också välja plats manuellt."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onqa, yakındaki radyo vericilerini bulmak ve yolculuk sırasında daha yakın vericilere geçmek için konumunuzu kullanır. Konumu elle de seçebilirsiniz."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Onqa використовує ваше розташування, щоб знаходити найближчі передавачі та перемикатися на ближчі під час подорожі. Розташування можна вибрати й вручну."
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

@@ -1,0 +1,72 @@
+name: Onqa
+options:
+  bundleIdPrefix: com.barteqcz
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+  developmentLanguage: en
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+targets:
+  Onqa:
+    type: application
+    platform: iOS
+    sources:
+      - path: Onqa
+    info:
+      path: Onqa/Info.plist
+      properties:
+        CFBundleDisplayName: Onqa
+        CFBundleShortVersionString: "1.2.0"
+        CFBundleVersion: "7"
+        LSApplicationCategoryType: public.app-category.music
+        LSRequiresIPhoneOS: true
+        NSLocationWhenInUseUsageDescription: "Onqa uses your location to find nearby radio stations and switch them as you move."
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoadsForMedia: true
+        ITSAppUsesNonExemptEncryption: false
+        UIBackgroundModes:
+          - audio
+          - location
+        UILaunchScreen: {}
+        CADisableMinimumFrameDurationOnPhone: true
+        UIApplicationSupportsIndirectInputEvents: true
+        CFBundleLocalizations: [en, be, bg, bs, cs, da, de, el, es, et, fi, fr, ga, hr, hu, is, it, lb, lt, lv, mk, mt, nb, nl, pl, pt, rm, ro, sk, sl, sq, sr, sv, tr, uk]
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.barteqcz.onqa
+        PRODUCT_NAME: Onqa
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+  OnqaTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: OnqaTests
+    dependencies:
+      - target: Onqa
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.barteqcz.onqa.tests
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  Onqa:
+    build:
+      targets:
+        Onqa: all
+        OnqaTests: [test]
+    test:
+      config: Debug
+      targets:
+        - OnqaTests

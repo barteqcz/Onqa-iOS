@@ -1,0 +1,686 @@
+import Foundation
+import CoreLocation
+import MapKit
+import os
+
+enum LocationPresentation {
+    static func isPending(
+        source: LocationSource,
+        permissionDenied: Bool,
+        resolvingName: Bool,
+        hasName: Bool,
+        hasCoordinate: Bool
+    ) -> Bool {
+        guard !hasName else { return false }
+        if resolvingName { return true }
+        guard !permissionDenied else { return false }
+        return source == .gps && !hasCoordinate
+    }
+}
+
+enum LocationTrackingPolicy {
+    /// Track continuously while the app is visible; in the background, track
+    /// only while audio is actually playing.
+    static func shouldTrack(
+        source: LocationSource,
+        hasLocationAccess: Bool,
+        appIsActive: Bool,
+        isPlaying: Bool
+    ) -> Bool {
+        guard source == .gps, hasLocationAccess else { return false }
+        return appIsActive || isPlaying
+    }
+}
+
+enum LocationRefreshPolicy {
+    /// Reuse cached station results until movement reaches the refresh
+    /// threshold. Live location updates have no distance filter of their own,
+    /// so this threshold is applied here, in code.
+    static func shouldReloadStations(
+        from previousCoordinate: CLLocationCoordinate2D?,
+        to coordinate: CLLocationCoordinate2D,
+        thresholdKm: Double
+    ) -> Bool {
+        guard let previousCoordinate else { return true }
+        return StationProcessor.hasMoved(
+            atLeast: thresholdKm,
+            from: previousCoordinate,
+            to: coordinate
+        )
+    }
+}
+extension RadioStore {
+    var hasLocationAccess: Bool {
+        locationAuthorizationStatus == .authorizedWhenInUse
+            || locationAuthorizationStatus == .authorizedAlways
+    }
+
+    var canEnterApp: Bool {
+        // Permission is checked before Alright is enabled. Once the user
+        // confirms, keep the app route stable for this session instead of
+        // letting a transient Core Location status refresh undo the tap.
+        hasConfirmedOnboardingThisSession
+    }
+
+    var needsLocationSettings: Bool {
+        locationAuthorizationStatus == .denied
+            || locationAuthorizationStatus == .restricted
+    }
+
+    /// A world globe is used until reverse geocoding can identify a country.
+    var locationFlag: String {
+        guard locationName != nil,
+              let code = locationCountryCode,
+              code.count == 2 else { return "🌍" }
+        let scalars = code.uppercased().unicodeScalars.compactMap { UnicodeScalar(127397 + $0.value) }
+        return scalars.count == 2 ? String(String.UnicodeScalarView(scalars)) : "🌍"
+    }
+
+    /// True while the location or its city name is still being retrieved; the
+    /// header shows a native progress spinner instead of text then.
+    var isLocationPending: Bool {
+        let rawLocation = settings.locationSource == .manual
+            ? (settings.manualCity ?? locationName)
+            : locationName
+        let hasName = rawLocation?
+            .components(separatedBy: ",").first?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .isEmpty == false
+
+        return LocationPresentation.isPending(
+            source: settings.locationSource,
+            permissionDenied: locationPermissionDenied,
+            resolvingName: isResolvingLocationName,
+            hasName: hasName,
+            hasCoordinate: locationCoordinate != nil
+        )
+    }
+
+    var locationLabel: String {
+        let rawLocation = settings.locationSource == .manual
+            ? (settings.manualCity ?? locationName)
+            : locationName
+
+        if let rawLocation {
+            let city = rawLocation
+                .components(separatedBy: ",")
+                .first?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if let city, !city.isEmpty {
+                return city
+            }
+        }
+
+        if !isLocationPending,
+           locationCoordinate != nil || settings.locationSource == .manual || locationPermissionDenied {
+            return String(localized: "Unknown location")
+        }
+        return String(localized: "Finding your location…")
+    }
+    func bootstrap() async {
+        guard !didBootstrap else { return }
+        didBootstrap = true
+        refreshLocationAuthorizationStatus()
+        guard canEnterApp else { return }
+        // Covers the app being closed while Manual was selected with no location.
+        revertToAutoIfManualLocationMissing()
+        configureLocationUpdates()
+
+        if settings.locationSource == .manual {
+            loadManualCoordinate()
+            await loadStations()
+        } else {
+            // Start catalog preparation independently of GPS so the catalog
+            // download card can appear while the header resolves the location.
+            Task { _ = try? await ensureCatalogAvailable() }
+        }
+    }
+
+    /// Manual mode may be selected before the user picks a point. Only fall
+    /// back to Auto when GPS access is available; never force a user who declined
+    /// location access back into a mode they cannot use.
+    func revertToAutoIfManualLocationMissing() {
+        guard settings.locationSource == .manual,
+              settings.manualLatitude == nil || settings.manualLongitude == nil,
+              hasLocationAccess else { return }
+        var value = settings
+        value.locationSource = .gps
+        settings = value
+    }
+
+    func refreshLocationAuthorizationStatus(configureTracking: Bool = true) {
+        applyLocationAuthorizationStatus(
+            authorizationProbe.authorizationStatus,
+            configureTracking: configureTracking
+        )
+    }
+
+    func applyLocationAuthorizationStatus(
+        _ status: CLAuthorizationStatus,
+        configureTracking: Bool = true
+    ) {
+        let previouslyHadLocationAccess = hasLocationAccess
+        locationAuthorizationStatus = status
+        locationPermissionDenied = status == .denied || status == .restricted
+
+        if locationPermissionDenied,
+           settings.onboardingCompleted,
+           settings.locationSource == .gps {
+            // If access is revoked in Settings, preserve app usability in Manual mode.
+            applyLocationSource(.manual)
+        }
+
+        if isAutomaticLocationSelectionPending {
+            if hasLocationAccess {
+                isAutomaticLocationSelectionPending = false
+                shouldShowLocationSettingsPrompt = false
+                applyLocationSource(.gps)
+            } else if needsLocationSettings {
+                isAutomaticLocationSelectionPending = false
+                shouldShowLocationSettingsPrompt = true
+            }
+        }
+
+        if !previouslyHadLocationAccess,
+           hasLocationAccess,
+           hasConfirmedOnboardingThisSession,
+           settings.locationSource == .manual {
+            loadManualCoordinate()
+            refreshStations()
+        }
+
+        if configureTracking {
+            configureLocationUpdates()
+        }
+    }
+
+    /// Selects Auto only after Core Location authorization is available.
+    /// A first-time request uses the native permission prompt; a previous
+    /// denial is handled with an in-app alert that can open iOS Settings.
+    func selectLocationSource(_ source: LocationSource) {
+        guard source == .gps else {
+            isAutomaticLocationSelectionPending = false
+            shouldShowLocationSettingsPrompt = false
+            applyLocationSource(.manual)
+            return
+        }
+
+        refreshLocationAuthorizationStatus()
+        switch locationAuthorizationStatus {
+        case .authorizedWhenInUse, .authorizedAlways:
+            isAutomaticLocationSelectionPending = false
+            shouldShowLocationSettingsPrompt = false
+            applyLocationSource(.gps)
+        case .notDetermined:
+            isAutomaticLocationSelectionPending = true
+            ensureLocationServiceSession()
+        case .denied, .restricted:
+            isAutomaticLocationSelectionPending = true
+            shouldShowLocationSettingsPrompt = true
+        @unknown default:
+            isAutomaticLocationSelectionPending = false
+            shouldShowLocationSettingsPrompt = true
+        }
+    }
+
+    func cancelPendingLocationSourceSelection() {
+        isAutomaticLocationSelectionPending = false
+        shouldShowLocationSettingsPrompt = false
+    }
+
+    func applyLocationSource(_ source: LocationSource) {
+        guard settings.locationSource != source else { return }
+        var value = settings
+        value.locationSource = source
+        settings = value
+    }
+
+    /// Triggers the system permission prompt on first use. After a denial the
+    /// prompt cannot be shown again; the onboarding location card opens the
+    /// app's Settings page instead.
+    func requestLocationAccess() {
+        refreshLocationAuthorizationStatus()
+        if locationAuthorizationStatus == .notDetermined {
+            ensureLocationServiceSession()
+        }
+    }
+
+    func prepareManualOnboarding() {
+        var value = settings
+        value.locationSource = .manual
+        settings = value
+        hasConfirmedOnboardingThisSession = false
+    }
+
+    func completeOnboarding(usingManualLocation: Bool = false) {
+        var value = settings
+        if usingManualLocation {
+            value.locationSource = .manual
+        }
+        value.onboardingCompleted = true
+        settings = value
+        hasConfirmedOnboardingThisSession = true
+        configureLocationUpdates()
+
+        if settings.locationSource == .manual {
+            loadManualCoordinate()
+            Task { await loadStations() }
+        } else {
+            // Begin the catalog download independently of the live location stream.
+            Task { _ = try? await ensureCatalogAvailable() }
+            // The live location stream starts when the user confirms Auto.
+        }
+    }
+
+    func handleLocationUpdate(_ update: CLLocationUpdate) {
+        if update.authorizationDenied || update.authorizationDeniedGlobally {
+            applyLocationAuthorizationStatus(.denied)
+            return
+        }
+        if update.authorizationRestricted {
+            applyLocationAuthorizationStatus(.restricted)
+            return
+        }
+        if update.authorizationRequestInProgress {
+            applyLocationAuthorizationStatus(.notDetermined, configureTracking: false)
+            return
+        }
+        if update.insufficientlyInUse || update.locationUnavailable {
+            return
+        }
+        if !hasLocationAccess {
+            refreshLocationAuthorizationStatus(configureTracking: false)
+        }
+        guard let location = update.location else { return }
+        handleLocationFix(location)
+    }
+
+    func handleLocationFix(_ location: CLLocation) {
+        guard settings.locationSource == .gps else { return }
+        let hasLocationName = locationName?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .isEmpty == false
+        let movedEnough = LocationRefreshPolicy.shouldReloadStations(
+            from: locationCoordinate,
+            to: location.coordinate,
+            thresholdKm: Self.locationRefreshThresholdKm
+        )
+        guard StationProcessor.shouldProcessLocationUpdate(
+            from: locationCoordinate,
+            to: location.coordinate,
+            hasLocationName: hasLocationName,
+            isResolvingLocationName: isResolvingLocationName,
+            thresholdKm: Self.locationRefreshThresholdKm,
+            isNameRetryAllowed: isNameLookupRetryAllowed
+        ) else { return }
+
+        locationPermissionDenied = false
+        if movedEnough {
+            locationCoordinate = location.coordinate
+        }
+        lastAutomaticCoordinate = locationCoordinate ?? location.coordinate
+        // Keep showing the current city while the next one resolves, so the
+        // header does not flip to a spinner at every 1 km of driving.
+        refreshLocationName(
+            for: location,
+            saveManualCity: false,
+            keepsCurrentName: hasLocationName
+        )
+        if movedEnough,
+           hasConfirmedOnboardingThisSession,
+           settings.locationSource == .gps {
+            Task { await loadStations(at: location.coordinate) }
+        }
+    }
+
+    func handleLocationUpdateFailure(_ error: Error) {
+        guard !Task.isCancelled else { return }
+        Log.location.error("Location updates failed: \(error.localizedDescription, privacy: .public)")
+        refreshLocationAuthorizationStatus(configureTracking: false)
+        if settings.locationSource == .gps && !hasLocationAccess {
+            locationName = nil
+            locationCountryCode = nil
+        }
+    }
+
+    func setAppIsActive(_ isActive: Bool) {
+        isAppActive = isActive
+        // Refresh permission after returning from iOS Settings, and update
+        // background tracking when the app enters or leaves the foreground.
+        refreshLocationAuthorizationStatus(configureTracking: false)
+        configureLocationUpdates()
+    }
+
+    func configureLocationUpdates() {
+        guard settings.locationSource == .gps else {
+            stopLocationUpdates()
+            endBackgroundActivitySession()
+            endLocationServiceSession()
+            return
+        }
+
+        let shouldTrack = hasConfirmedOnboardingThisSession
+            && LocationTrackingPolicy.shouldTrack(
+                source: settings.locationSource,
+                hasLocationAccess: hasLocationAccess,
+                appIsActive: isAppActive,
+                isPlaying: player.isPlaying
+            )
+
+        guard shouldTrack else {
+            stopLocationUpdates()
+            endBackgroundActivitySession()
+            return
+        }
+
+        ensureLocationServiceSession()
+        if player.isPlaying {
+            // Create while foregrounded so When In Use authorization can continue
+            // delivering location events after the app enters the background.
+            if backgroundActivitySession == nil {
+                backgroundActivitySession = CLBackgroundActivitySession()
+            }
+        } else {
+            endBackgroundActivitySession()
+        }
+        startLocationUpdates()
+    }
+
+    func ensureLocationServiceSession() {
+        guard locationServiceSession == nil else { return }
+        let session = CLServiceSession(authorization: .whenInUse)
+        locationServiceSession = session
+
+        locationServiceDiagnosticsTask = Task { [weak self, session] in
+            do {
+                for try await diagnostic in session.diagnostics {
+                    guard let self, !Task.isCancelled else { break }
+                    if diagnostic.authorizationDenied || diagnostic.authorizationDeniedGlobally {
+                        self.applyLocationAuthorizationStatus(.denied)
+                    } else if diagnostic.authorizationRestricted {
+                        self.applyLocationAuthorizationStatus(.restricted)
+                    } else if diagnostic.authorizationRequestInProgress {
+                        self.applyLocationAuthorizationStatus(.notDetermined, configureTracking: false)
+                    } else {
+                        self.refreshLocationAuthorizationStatus()
+                    }
+                }
+            } catch is CancellationError {
+                // Expected when switching to Manual mode.
+            } catch {
+                Log.location.error("Location authorization diagnostics failed: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
+    func endLocationServiceSession() {
+        locationServiceDiagnosticsTask?.cancel()
+        locationServiceDiagnosticsTask = nil
+        locationServiceSession?.invalidate()
+        locationServiceSession = nil
+    }
+
+    func startLocationUpdates() {
+        guard locationUpdatesTask == nil else { return }
+        let taskID = UUID()
+        activeLocationUpdatesID = taskID
+        locationUpdatesTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                // Station coverage areas are tens of kilometres wide and the
+                // app only reacts to ~1 km of movement, so the default
+                // configuration is enough. .automotiveNavigation keeps the GPS
+                // at navigation accuracy and costs noticeably more battery
+                // during long drives with the screen off.
+                for try await update in CLLocationUpdate.liveUpdates(.default) {
+                    guard !Task.isCancelled else { break }
+                    self.handleLocationUpdate(update)
+                }
+            } catch is CancellationError {
+                // Expected when location tracking is no longer needed.
+            } catch {
+                self.handleLocationUpdateFailure(error)
+            }
+
+            if self.activeLocationUpdatesID == taskID {
+                self.activeLocationUpdatesID = nil
+                self.locationUpdatesTask = nil
+            }
+        }
+    }
+
+    func stopLocationUpdates() {
+        activeLocationUpdatesID = nil
+        locationUpdatesTask?.cancel()
+        locationUpdatesTask = nil
+    }
+
+    func endBackgroundActivitySession() {
+        backgroundActivitySession?.invalidate()
+        backgroundActivitySession = nil
+    }
+
+    /// Port of the Android StationCoverageManager: keep playing the current station from the nearest
+    /// transmitter in coverage, otherwise fall back to the same network, a favorite, or the nearest
+    /// station, and stop if nothing is in range.
+    func checkCoverageAndSwitch() {
+        // A location refresh can finish while a newly selected stream is still
+        // preparing or reconnecting. Do not replace or stop AVPlayer during
+        // that transition; transmitter switching resumes after playback is
+        // stable and a subsequent accepted location update arrives.
+        guard player.isPlaying,
+              !player.isReconnecting,
+              let current = player.currentStation,
+              let currentURL = player.currentStreamURL else { return }
+        let useHQ = settings.useHQStream
+
+        func inCoverage(_ station: RadioStation) -> Bool {
+            guard let distance = station.distanceKm, let coverage = station.coverageKm else { return false }
+            return distance <= coverage
+        }
+        func nearest(_ list: [RadioStation]) -> RadioStation? {
+            list.min { ($0.distanceKm ?? .greatestFiniteMagnitude) < ($1.distanceKm ?? .greatestFiniteMagnitude) }
+        }
+        func normalized(_ url: URL) -> String {
+            url.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        }
+        let currentKey = normalized(currentURL)
+
+        let sameIdentity = catalogStations.filter { $0.id == current.id }
+        let matching = sameIdentity.isEmpty
+            ? catalogStations.filter { $0.matches(url: currentURL) }
+            : sameIdentity
+        if let match = nearest(matching.filter(inCoverage)) {
+            if let target = match.streamURL(useHQ: useHQ), normalized(target) != currentKey {
+                player.play(match, useHQ: useHQ)
+            }
+            return
+        }
+
+        let network = current.network ?? matching.first?.network
+        let candidates = StationProcessor.groupAndSort(catalogStations, favorites: favorites).filter(inCoverage)
+        var fallback: RadioStation?
+        if let network {
+            fallback = nearest(candidates.filter { $0.network == network })
+        }
+        if fallback == nil { fallback = nearest(candidates.filter { $0.isFavorite }) }
+        if fallback == nil { fallback = nearest(candidates) }
+
+        if let fallback {
+            if let target = fallback.streamURL(useHQ: useHQ), normalized(target) != currentKey {
+                player.play(fallback, useHQ: useHQ)
+            }
+        } else {
+            player.stop()
+        }
+    }
+
+    func setManualLocation(
+        _ coordinate: CLLocationCoordinate2D,
+        completesOnboarding: Bool = false
+    ) {
+        let wasAlreadyManual = settings.locationSource == .manual
+        var value = settings
+        value.locationSource = .manual
+        value.manualLatitude = coordinate.latitude
+        value.manualLongitude = coordinate.longitude
+        value.manualCity = nil
+        if completesOnboarding {
+            value.onboardingCompleted = true
+        }
+        settings = value
+        locationCoordinate = coordinate
+
+        if completesOnboarding {
+            hasConfirmedOnboardingThisSession = true
+            configureLocationUpdates()
+        }
+
+        if wasAlreadyManual {
+            refreshLocationName(
+                for: CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude),
+                saveManualCity: true
+            )
+            Task { await loadStations(at: coordinate) }
+        }
+    }
+    func loadManualCoordinate() {
+        guard let latitude = settings.manualLatitude, let longitude = settings.manualLongitude else {
+            locationCoordinate = nil
+            locationName = nil
+            locationCountryCode = nil
+            if settings.manualCity != nil {
+                var value = settings
+                value.manualCity = nil
+                settings = value
+            }
+            return
+        }
+
+        // A cached city can be stale if reverse geocoding no longer identifies
+        // this point (for example, when the saved point is offshore).
+        if settings.manualCity != nil {
+            var value = settings
+            value.manualCity = nil
+            settings = value
+        }
+
+        locationName = nil
+        locationCountryCode = nil
+        let coordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+        locationCoordinate = coordinate
+        refreshLocationName(
+            for: CLLocation(latitude: latitude, longitude: longitude),
+            saveManualCity: true
+        )
+    }
+
+    func effectiveCoordinate() -> CLLocationCoordinate2D? {
+        if settings.locationSource == .manual,
+           let latitude = settings.manualLatitude,
+           let longitude = settings.manualLongitude {
+            return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+        }
+        return locationCoordinate
+    }
+
+    func cancelReverseGeocoding() {
+        reverseGeocodingTask?.cancel()
+        reverseGeocodingTask = nil
+        reverseGeocodingRequest?.cancel()
+        reverseGeocodingRequest = nil
+    }
+
+    /// A lookup that fails (offline, or no city at that point) is retried with
+    /// exponential backoff on later GPS updates rather than on every one.
+    var isNameLookupRetryAllowed: Bool {
+        guard let next = nextNameLookupDate else { return true }
+        return Date() >= next
+    }
+
+    private func recordNameLookupFailure() {
+        nameLookupFailures += 1
+        let delay = RetryBackoff.delay(
+            afterFailures: nameLookupFailures,
+            base: 5,
+            cap: 300
+        )
+        nextNameLookupDate = Date().addingTimeInterval(delay)
+    }
+
+    private func resetNameLookupBackoff() {
+        nameLookupFailures = 0
+        nextNameLookupDate = nil
+    }
+
+    func refreshLocationName(
+        for location: CLLocation,
+        saveManualCity: Bool,
+        keepsCurrentName: Bool = false
+    ) {
+        locationLookupID &+= 1
+        let requestID = locationLookupID
+        if !keepsCurrentName {
+            locationName = nil
+            locationCountryCode = nil
+        }
+        isResolvingLocationName = true
+        cancelReverseGeocoding()
+
+        reverseGeocodingTask = Task { [weak self] in
+            guard let self else { return }
+            let result = await self.reverseGeocode(location)
+            guard !Task.isCancelled, requestID == self.locationLookupID else { return }
+            // Only the automatic (GPS) path can loop on failures; manual
+            // lookups are one-off.
+            if !saveManualCity {
+                if result.name == nil {
+                    self.recordNameLookupFailure()
+                } else {
+                    self.resetNameLookupBackoff()
+                }
+            }
+            self.locationName = result.name
+            self.locationCountryCode = result.countryCode
+            self.isResolvingLocationName = false
+            self.reverseGeocodingTask = nil
+            if self.settings.locationSource == .gps {
+                self.lastAutomaticLocationName = result.name
+                self.lastAutomaticLocationCountryCode = result.countryCode
+            }
+            if saveManualCity {
+                var value = self.settings
+                value.manualCity = result.name
+                self.settings = value
+            }
+        }
+    }
+
+    func reverseGeocode(_ location: CLLocation) async -> (name: String?, countryCode: String?) {
+        guard let request = MKReverseGeocodingRequest(location: location) else {
+            return (nil, nil)
+        }
+        reverseGeocodingRequest = request
+        defer {
+            if reverseGeocodingRequest === request {
+                reverseGeocodingRequest = nil
+            }
+        }
+        do {
+            let mapItems = try await request.mapItems
+            try Task.checkCancellation()
+            guard let address = mapItems.first?.addressRepresentations,
+                  let candidate = address.cityName ?? address.regionName else {
+                return (nil, nil)
+            }
+            let name = candidate.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty else { return (nil, nil) }
+            return (name, address.region?.identifier)
+        } catch is CancellationError {
+            return (nil, nil)
+        } catch {
+            Log.location.error("Reverse geocoding failed: \(error.localizedDescription, privacy: .public)")
+            return (nil, nil)
+        }
+    }
+}
