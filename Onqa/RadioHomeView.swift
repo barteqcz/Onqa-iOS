@@ -78,6 +78,7 @@ private struct TopScrollEdgeEffect: ViewModifier {
 struct RadioHomeView: View {
     @Bindable var store: RadioStore
     @Environment(\.scenePhase) private var scenePhase
+    @State private var stationGridWidth: CGFloat = 0
     @Environment(\.colorScheme) private var colorScheme
     // The environment locale follows the system's Measurement System, so cards
     // update if it is changed in Settings while the app is running.
@@ -133,8 +134,20 @@ struct RadioHomeView: View {
 
     private static let searchAnimation: Animation = .smooth(duration: 0.32)
 
+    private static let stationMinimumWidth: CGFloat = 320
+
+    /// The column count is derived from the measured width instead of using an
+    /// `.adaptive` GridItem: the adaptive layout could keep its landscape
+    /// (two column) arrangement after rotating back to portrait.
     private var stationColumns: [GridItem] {
-        [GridItem(.adaptive(minimum: 320), spacing: Self.stationSpacing, alignment: .top)]
+        let spacing = Self.stationSpacing
+        let count = stationGridWidth > 0
+            ? max(1, Int((stationGridWidth + spacing) / (Self.stationMinimumWidth + spacing)))
+            : 1
+        return Array(
+            repeating: GridItem(.flexible(), spacing: spacing, alignment: .top),
+            count: count
+        )
     }
 
     /// Keep the 14pt toolbar gap and 5pt first-card inset consistent in both
@@ -532,6 +545,9 @@ struct RadioHomeView: View {
                     .equatable()
                     .transition(.opacity.combined(with: .scale(scale: 0.97)))
                 }
+            }
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: {
+                stationGridWidth = $0
             }
             .animation(.snappy(duration: 0.28), value: visibleStations.map(\.id))
         }
