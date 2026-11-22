@@ -19,16 +19,29 @@ enum LocationPresentation {
 }
 
 enum LocationTrackingPolicy {
-    /// Track continuously while the app is visible; in the background, track
-    /// only while audio is actually playing.
+    /// Track while the app is visible or playback is active, including buffering
+    /// and reconnecting. A separate grace period handles an intentional stop.
     static func shouldTrack(
         source: LocationSource,
         hasLocationAccess: Bool,
         appIsActive: Bool,
-        isPlaying: Bool
+        hasActivePlayback: Bool
     ) -> Bool {
         guard source == .gps, hasLocationAccess else { return false }
-        return appIsActive || isPlaying
+        return appIsActive || hasActivePlayback
+    }
+
+    /// Preserve a background session until its scheduled stop grace period ends.
+    static func shouldKeepTrackingDuringStopGrace(
+        source: LocationSource,
+        hasLocationAccess: Bool,
+        hasBackgroundActivitySession: Bool,
+        hasPendingStop: Bool
+    ) -> Bool {
+        source == .gps
+            && hasLocationAccess
+            && hasBackgroundActivitySession
+            && hasPendingStop
     }
 }
 
@@ -448,11 +461,8 @@ extension RadioStore {
         }
     }
 
-    /// How long the background session outlives a stop in playback while the
-    /// app is in the foreground. Skipping, buffering, reconnecting and short interruptions
-    /// flip `isPlaying` for a moment; tearing the Core Location sessions down
-    /// and recreating them every time is churn that can leave iOS showing the
-    /// blue location indicator for the app long after it has stopped.
+    /// Keep the background location session briefly after playback actually stops,
+    /// allowing a quick resume without tearing down and recreating Core Location.
     private static let locationStopGracePeriod: Duration = .seconds(8)
 
     func configureLocationUpdates() {
@@ -464,21 +474,29 @@ extension RadioStore {
             return
         }
 
-        if shouldTrackLocation {
+        // Start the grace period as soon as all playback activity ends, even if
+        // the app is already in the background. This keeps location alive for
+        // the full grace period after a user pause/stop.
+        if !player.hasActivePlayback, backgroundActivitySession != nil {
+            scheduleLocationStop()
+        }
+
+        let shouldKeepTrackingDuringGrace = LocationTrackingPolicy.shouldKeepTrackingDuringStopGrace(
+            source: settings.locationSource,
+            hasLocationAccess: hasLocationAccess,
+            hasBackgroundActivitySession: backgroundActivitySession != nil,
+            hasPendingStop: locationStopTask != nil
+        )
+
+        if shouldTrackLocation || shouldKeepTrackingDuringGrace {
             ensureLocationServiceSession()
-            if player.isPlaying {
+            if player.hasActivePlayback {
                 cancelPendingLocationStop()
                 // Create while foregrounded so When In Use authorization can continue
                 // delivering location events after the app enters the background.
                 if backgroundActivitySession == nil {
                     backgroundActivitySession = CLBackgroundActivitySession()
                 }
-            } else if backgroundActivitySession != nil {
-                // Playback stopped while the app is visible: keep the
-                // background session for a moment in case it resumes.
-                scheduleLocationStop()
-            } else {
-                cancelPendingLocationStop()
             }
             startLocationUpdates()
         } else {
@@ -498,7 +516,7 @@ extension RadioStore {
                 source: settings.locationSource,
                 hasLocationAccess: hasLocationAccess,
                 appIsActive: isAppActive,
-                isPlaying: player.isPlaying
+                hasActivePlayback: player.hasActivePlayback
             )
     }
 
@@ -513,7 +531,7 @@ extension RadioStore {
             if !self.shouldTrackLocation {
                 self.stopLocationUpdates()
             }
-            if !self.player.isPlaying {
+            if !self.player.hasActivePlayback {
                 self.endBackgroundActivitySession()
             }
         }

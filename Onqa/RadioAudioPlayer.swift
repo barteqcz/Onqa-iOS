@@ -16,10 +16,27 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
             }
         }
     }
-    private(set) var isBuffering = false
+    private(set) var isBuffering = false {
+        didSet {
+            if oldValue != isBuffering {
+                onPlaybackActivityChange?()
+            }
+        }
+    }
     private(set) var playbackError = false
-    private(set) var isReconnecting = false
+    private(set) var isReconnecting = false {
+        didSet {
+            if oldValue != isReconnecting {
+                onPlaybackActivityChange?()
+            }
+        }
+    }
     private(set) var metadata: String?
+
+    /// A playback attempt remains active while the stream is buffering or reconnecting.
+    var hasActivePlayback: Bool {
+        isPlaying || isBuffering || isReconnecting
+    }
 
     var onNext: (() -> Void)?
     var onPrevious: (() -> Void)?

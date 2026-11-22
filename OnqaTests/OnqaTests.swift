@@ -165,36 +165,64 @@ struct OnqaTests {
         ))
     }
 
-    @Test func backgroundLocationTrackingRequiresPlayback() {
+    @Test func backgroundLocationTrackingContinuesForAllActivePlaybackStates() {
         #expect(LocationTrackingPolicy.shouldTrack(
             source: .gps,
             hasLocationAccess: true,
             appIsActive: true,
-            isPlaying: false
+            hasActivePlayback: false
         ))
+        // Playing, buffering and reconnecting all count as active playback.
         #expect(LocationTrackingPolicy.shouldTrack(
             source: .gps,
             hasLocationAccess: true,
             appIsActive: false,
-            isPlaying: true
+            hasActivePlayback: true
         ))
         #expect(!(LocationTrackingPolicy.shouldTrack(
             source: .gps,
             hasLocationAccess: true,
             appIsActive: false,
-            isPlaying: false
+            hasActivePlayback: false
         )))
         #expect(!(LocationTrackingPolicy.shouldTrack(
             source: .manual,
             hasLocationAccess: true,
             appIsActive: true,
-            isPlaying: true
+            hasActivePlayback: true
         )))
         #expect(!(LocationTrackingPolicy.shouldTrack(
             source: .gps,
             hasLocationAccess: false,
             appIsActive: true,
-            isPlaying: true
+            hasActivePlayback: true
+        )))
+    }
+
+    @Test func backgroundLocationTrackingContinuesUntilStopGraceExpires() {
+        #expect(LocationTrackingPolicy.shouldKeepTrackingDuringStopGrace(
+            source: .gps,
+            hasLocationAccess: true,
+            hasBackgroundActivitySession: true,
+            hasPendingStop: true
+        ))
+        #expect(!(LocationTrackingPolicy.shouldKeepTrackingDuringStopGrace(
+            source: .gps,
+            hasLocationAccess: true,
+            hasBackgroundActivitySession: true,
+            hasPendingStop: false
+        )))
+        #expect(!(LocationTrackingPolicy.shouldKeepTrackingDuringStopGrace(
+            source: .manual,
+            hasLocationAccess: true,
+            hasBackgroundActivitySession: true,
+            hasPendingStop: true
+        )))
+        #expect(!(LocationTrackingPolicy.shouldKeepTrackingDuringStopGrace(
+            source: .gps,
+            hasLocationAccess: false,
+            hasBackgroundActivitySession: true,
+            hasPendingStop: true
         )))
     }
 
