@@ -22,7 +22,6 @@ enum LocationErrorPolicy {
 
 enum LocationRequestConfiguration {
     static let desiredAccuracy: CLLocationAccuracy = kCLLocationAccuracyHundredMeters
-    static let requestedInterval: TimeInterval = 30
     static let minimumUpdateInterval: TimeInterval = 15
     static let minimumDistance: CLLocationDistance = 1_000
 }
