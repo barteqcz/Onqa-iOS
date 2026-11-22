@@ -81,7 +81,7 @@ private struct MiniPlayerSwipe: ViewModifier {
 
     @State private var offsetX: CGFloat = 0
     @State private var opacity: Double = 1
-    @State private var width: CGFloat = 400
+    @State private var size: CGSize = .zero
     private enum Phase { case idle, slidingOut, slidingIn }
     @State private var phase: Phase = .idle
     /// Bumped on every commit so a superseded slide-in never resets state.
@@ -97,22 +97,34 @@ private struct MiniPlayerSwipe: ViewModifier {
     private let slideIn: Duration = .milliseconds(340)
 
     func body(content: Content) -> some View {
-        content
-            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
-            .offset(x: offsetX)
-            .opacity(opacity)
-            // simultaneous so the play/pause button and the hit-target tap keep working
-            .simultaneousGesture(isEnabled ? swipe : nil)
-            .onChange(of: isDragging) { _, dragging in
-                if !dragging && phase == .idle && offsetX != 0 { springBack() }
-            }
-            .sensoryFeedback(.impact(flexibility: .soft), trigger: hapticTrigger)
-            .accessibilityAction(named: Text("Previous station")) {
-                if isEnabled { onPrevious() }
-            }
-            .accessibilityAction(named: Text("Next station")) {
-                if isEnabled { onNext() }
-            }
+        ZStack {
+            // Stays put while the bar slides away, so taps in that area never
+            // fall through to the station cards behind the mini player (e.g.
+            // when skipping very fast and the bar is momentarily off-screen).
+            Color.clear
+                .frame(width: size.width, height: size.height)
+                .contentShape(Rectangle())
+                .onTapGesture {}
+
+            content
+                .onGeometryChange(for: CGSize.self) { $0.size } action: { size = $0 }
+                .offset(x: offsetX)
+                .opacity(opacity)
+        }
+        // On the stationary container (not the moving bar), so a new swipe
+        // is still recognised while the bar is mid-slide.
+        // Simultaneous so the play/pause button and the hit-target tap keep working.
+        .simultaneousGesture(isEnabled ? swipe : nil)
+        .onChange(of: isDragging) { _, dragging in
+            if !dragging && phase == .idle && offsetX != 0 { springBack() }
+        }
+        .sensoryFeedback(.impact(flexibility: .soft), trigger: hapticTrigger)
+        .accessibilityAction(named: Text("Previous station")) {
+            if isEnabled { onPrevious() }
+        }
+        .accessibilityAction(named: Text("Next station")) {
+            if isEnabled { onNext() }
+        }
     }
 
     private func isHorizontal(_ value: DragGesture.Value) -> Bool {
@@ -157,7 +169,7 @@ private struct MiniPlayerSwipe: ViewModifier {
 
         // 1. Slide the current bar out in the swipe direction.
         withAnimation(.easeIn(duration: 0.13)) {
-            offsetX = direction * width
+            offsetX = direction * size.width
             opacity = 0
         }
 
@@ -170,7 +182,7 @@ private struct MiniPlayerSwipe: ViewModifier {
             var jump = Transaction()
             jump.disablesAnimations = true
             withTransaction(jump) {
-                offsetX = -direction * width * 0.6
+                offsetX = -direction * size.width * 0.6
                 opacity = 0
             }
 
