@@ -78,7 +78,8 @@ private struct TopScrollEdgeEffect: ViewModifier {
 struct RadioHomeView: View {
     @Bindable var store: RadioStore
     @Environment(\.scenePhase) private var scenePhase
-    @State private var stationGridWidth: CGFloat = 0
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.colorScheme) private var colorScheme
     // The environment locale follows the system's Measurement System, so cards
     // update if it is changed in Settings while the app is running.
@@ -137,14 +138,15 @@ struct RadioHomeView: View {
     private static let stationMinimumWidth: CGFloat = 320
     private static let stationContentHorizontalInset: CGFloat = 16
 
-    /// The column count is derived from the measured width instead of using an
-    /// `.adaptive` GridItem: the adaptive layout could keep its landscape
-    /// (two column) arrangement after rotating back to portrait.
-    private var stationColumns: [GridItem] {
+    /// Calculate columns from the station list's current container width.
+    /// Compact-width phones in portrait are always kept to a single column;
+    /// other layouts use the available width to decide whether two fit.
+    private func stationColumns(for availableWidth: CGFloat) -> [GridItem] {
         let spacing = Self.stationSpacing
-        let count = stationGridWidth > 0
-            ? max(1, Int((stationGridWidth + spacing) / (Self.stationMinimumWidth + spacing)))
-            : 1
+        let count = max(
+            1,
+            Int((availableWidth + spacing) / (Self.stationMinimumWidth + spacing))
+        )
         return Array(
             repeating: GridItem(.flexible(), spacing: spacing, alignment: .top),
             count: count
@@ -230,7 +232,12 @@ struct RadioHomeView: View {
     /// The station list owns the top edge in no-location mode so its
     /// transparent top inset scrolls underneath the native navigation bar.
     private var stationList: some View {
-        ScrollView {
+        GeometryReader { geometry in
+            let gridWidth = max(0, geometry.size.width - Self.stationContentHorizontalInset * 2)
+            let isPhonePortrait = horizontalSizeClass == .compact && verticalSizeClass == .regular
+            let columns = stationColumns(for: isPhonePortrait ? 0 : gridWidth)
+
+            ScrollView {
             VStack(spacing: 14) {
                 // The offline card already explains the state, so avoid
                 // showing a duplicate banner above it.
@@ -254,19 +261,13 @@ struct RadioHomeView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
 
-                stationContent
+                stationContent(columns: columns)
             }
             .padding(.horizontal, Self.stationContentHorizontalInset)
 
             // Keep a little breathing room below the final station box.
             Color.clear
                 .frame(height: 14)
-        }
-        // Measure the viewport, not the LazyVGrid. The viewport is resized on
-        // rotation, so the column count follows the current available width.
-        // The grid is inset by 16pt on each horizontal edge inside the list.
-        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: {
-            stationGridWidth = max(0, $0 - Self.stationContentHorizontalInset * 2)
         }
         // Keep a small inset so the first station's outline is not clipped.
         .contentMargins(.top, stationListTopInset, for: .scrollContent)
@@ -321,6 +322,7 @@ struct RadioHomeView: View {
             .scrollDismissesKeyboard(.interactively)
             .animation(.snappy(duration: 0.24), value: store.isNetworkAvailable)
             .animation(.snappy(duration: 0.24), value: store.errorMessage)
+        }
     }
 
     /// Shows or hides the catalog card to match the store. A download only
@@ -512,7 +514,7 @@ struct RadioHomeView: View {
     }
 
     @ViewBuilder
-    private var stationContent: some View {
+    private func stationContent(columns: [GridItem]) -> some View {
         let visibleStations = store.displayedStations
         if let status = presentedCatalogStatus {
             // Takes the place of the loading spinner and the "No stations
@@ -534,7 +536,7 @@ struct RadioHomeView: View {
             EmptyStationsView()
                 .transition(.opacity.combined(with: .scale(scale: 0.98)))
         } else {
-            LazyVGrid(columns: stationColumns, spacing: Self.stationSpacing) {
+            LazyVGrid(columns: columns, spacing: Self.stationSpacing) {
                 ForEach(visibleStations) { station in
                     StationCardView(
                         station: station,
