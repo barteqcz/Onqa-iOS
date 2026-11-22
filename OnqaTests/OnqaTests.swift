@@ -40,7 +40,7 @@ struct OnqaTests {
         }
     }
     @Test func androidLocationRequestConfigurationIsPreservedOnIOS() {
-        #expect(LocationRequestConfiguration.desiredAccuracy == kCLLocationAccuracyKilometer)
+        #expect(LocationRequestConfiguration.desiredAccuracy == kCLLocationAccuracyHundredMeters)
         #expect(LocationRequestConfiguration.requestedInterval == 30)
         #expect(LocationRequestConfiguration.minimumUpdateInterval == 15)
         #expect(LocationRequestConfiguration.minimumDistance == 1_000)
