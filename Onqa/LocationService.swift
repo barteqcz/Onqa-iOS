@@ -153,11 +153,32 @@ extension RadioStore {
         if settings.locationSource == .manual {
             loadManualCoordinate()
             await loadStations()
+        } else if let coordinate = locationCoordinate {
+            // The previous session's location was restored: show its stations
+            // right away. The first live fix corrects the list if the person
+            // has moved by at least the refresh threshold since then.
+            await loadStations(at: coordinate)
         } else {
             // Start catalog preparation independently of GPS so the catalog
             // download card can appear while the header resolves the location.
             Task { _ = try? await ensureCatalogAvailable() }
         }
+    }
+
+    /// Applies the automatic location saved by the previous session. The
+    /// header and station list can then be shown before the first fix arrives.
+    /// The last-known values are always kept, so switching from Manual back to
+    /// Auto restores them too; the live position is only set while Auto is
+    /// active and location access still holds.
+    func restoreLastAutomaticLocation(_ saved: SavedLocation) {
+        lastAutomaticCoordinate = saved.coordinate
+        lastAutomaticLocationName = saved.name
+        lastAutomaticLocationCountryCode = saved.countryCode
+
+        guard settings.locationSource == .gps, hasConfirmedOnboardingThisSession else { return }
+        locationCoordinate = saved.coordinate
+        locationName = saved.name
+        locationCountryCode = saved.countryCode
     }
 
     /// Manual mode may be selected before the user picks a point. Only fall
@@ -767,6 +788,15 @@ extension RadioStore {
             if self.settings.locationSource == .gps {
                 self.lastAutomaticLocationName = result.name
                 self.lastAutomaticLocationCountryCode = result.countryCode
+                if !saveManualCity, let name = result.name {
+                    // Saved together with the position this name was resolved
+                    // for, so the pair never goes out of sync.
+                    SavedLocationStorage.save(SavedLocation(
+                        coordinate: location.coordinate,
+                        name: name,
+                        countryCode: result.countryCode
+                    ))
+                }
             }
             if saveManualCity {
                 var value = self.settings

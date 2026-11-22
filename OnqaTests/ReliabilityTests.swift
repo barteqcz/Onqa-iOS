@@ -100,6 +100,63 @@ struct ReliabilityTests {
         #expect(LocationErrorPolicy.action(for: .denied) == .stopTracking)
     }
 
+    // MARK: Saved location
+
+    private func isolatedDefaults() -> UserDefaults {
+        let name = "onqa.tests.savedlocation.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: name)!
+        defaults.removePersistentDomain(forName: name)
+        return defaults
+    }
+
+    @Test func savedLocationRoundTrips() {
+        let defaults = isolatedDefaults()
+        let saved = SavedLocation(
+            coordinate: CLLocationCoordinate2D(latitude: 50.29, longitude: 18.67),
+            name: "Gliwice",
+            countryCode: "PL"
+        )
+
+        SavedLocationStorage.save(saved, to: defaults)
+
+        #expect(SavedLocationStorage.load(from: defaults) == saved)
+    }
+
+    @Test func missingSavedLocationLoadsAsNil() {
+        #expect(SavedLocationStorage.load(from: isolatedDefaults()) == nil)
+    }
+
+    @Test func damagedSavedLocationIsIgnored() {
+        let defaults = isolatedDefaults()
+        defaults.set(Data("not json".utf8), forKey: SavedLocationStorage.key)
+
+        #expect(SavedLocationStorage.load(from: defaults) == nil)
+    }
+
+    @Test func savedLocationRequiresValidCoordinateAndName() {
+        let valid = CLLocationCoordinate2D(latitude: 50, longitude: 19)
+        #expect(SavedLocation(coordinate: valid, name: "Kraków", countryCode: nil).isValid)
+        #expect(!SavedLocation(coordinate: valid, name: "  ", countryCode: nil).isValid)
+        #expect(!SavedLocation(
+            coordinate: CLLocationCoordinate2D(latitude: 91, longitude: 19),
+            name: "Nowhere",
+            countryCode: nil
+        ).isValid)
+    }
+
+    @Test func invalidSavedLocationIsNotWritten() {
+        let defaults = isolatedDefaults()
+        let invalid = SavedLocation(
+            coordinate: CLLocationCoordinate2D(latitude: 91, longitude: 19),
+            name: "Nowhere",
+            countryCode: nil
+        )
+
+        SavedLocationStorage.save(invalid, to: defaults)
+
+        #expect(defaults.data(forKey: SavedLocationStorage.key) == nil)
+    }
+
     // MARK: Stream metadata
 
     @Test func onlyTrackTitleIdentifiersAreAccepted() {

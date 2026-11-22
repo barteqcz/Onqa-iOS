@@ -165,6 +165,9 @@ final class RadioStore {
                 || locationAuthorizationStatus == .authorizedAlways
                 || settings.locationSource == .manual
         )
+        if let saved = SavedLocationStorage.load() {
+            restoreLastAutomaticLocation(saved)
+        }
         networkMonitor.pathUpdateHandler = { [weak self] path in
             let isSatisfied = path.status == .satisfied
             Task { @MainActor in

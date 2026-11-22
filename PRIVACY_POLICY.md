@@ -5,13 +5,14 @@ Onqa ("the app") is a local radio discovery app. This policy describes how the i
 ## Information the app uses
 
 - **Location (While Using the App).** Your approximate location is used on-device to find radio transmitters near you and to sort stations by distance. While the app is open it follows your location, updating when you move about 1 km. While a station is playing, the app also keeps following your location in the background so it can switch to a transmitter closer to you; iOS shows its location indicator when this happens. Background location is never used when no station is playing, and it requires only the "While Using the App" permission. If you choose a location manually on the map, the app does not use your device location at all.
+- **Last known location.** So that nearby stations appear as soon as the app opens, the app keeps the last location it determined, as coordinates and a city name, in local storage on your device (UserDefaults). It is updated as your location changes, is never sent anywhere, and is removed when you uninstall the app.
 - **Local preferences.** Favorite stations, theme, accent color and other settings are stored locally on your device (UserDefaults) and are removed when you uninstall the app.
 
 The app does not collect personal identifiers, contact information or browsing history, and it has no analytics or advertising.
 
 ## How location is used
 
-Location is used only to query the station catalog stored on your device. It is **not** sent to the Onqa service. We do not sell, trade or rent location data.
+Location is used only to query the station catalog stored on your device and to show your last known location when the app opens. It is **not** sent to the Onqa service. We do not sell, trade or rent location data.
 
 ## Network requests
 

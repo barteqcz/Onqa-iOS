@@ -533,10 +533,13 @@ final class RadioStoreTests {
     // Serialized: every test reads and writes the shared settings entry in
     // UserDefaults. A fresh instance (init/deinit) wraps each test.
     private let savedSettings: Data?
+    private let savedLastLocation: Data?
 
     init() {
         savedSettings = UserDefaults.standard.data(forKey: "onqa.settings.v1")
+        savedLastLocation = UserDefaults.standard.data(forKey: SavedLocationStorage.key)
         UserDefaults.standard.removeObject(forKey: "onqa.settings.v1")
+        UserDefaults.standard.removeObject(forKey: SavedLocationStorage.key)
     }
 
     deinit {
@@ -544,6 +547,11 @@ final class RadioStoreTests {
             UserDefaults.standard.set(savedSettings, forKey: "onqa.settings.v1")
         } else {
             UserDefaults.standard.removeObject(forKey: "onqa.settings.v1")
+        }
+        if let savedLastLocation {
+            UserDefaults.standard.set(savedLastLocation, forKey: SavedLocationStorage.key)
+        } else {
+            UserDefaults.standard.removeObject(forKey: SavedLocationStorage.key)
         }
     }
 
@@ -605,5 +613,60 @@ final class RadioStoreTests {
         store.settings = settings
 
         #expect(store.locationLabel == "Kraków")
+    }
+
+    private var savedGliwice: SavedLocation {
+        SavedLocation(
+            coordinate: CLLocationCoordinate2D(latitude: 50.29, longitude: 18.67),
+            name: "Gliwice",
+            countryCode: "PL"
+        )
+    }
+
+    @Test func savedLocationIsShownImmediatelyInAutoMode() {
+        let store = RadioStore()
+        var settings = store.settings
+        settings.locationSource = .gps
+        store.settings = settings
+        store.hasConfirmedOnboardingThisSession = true
+
+        store.restoreLastAutomaticLocation(savedGliwice)
+
+        // No wait for the first fix: the header and station list can render.
+        #expect(store.locationCoordinate != nil)
+        #expect(!store.isLocationPending)
+        #expect(store.locationLabel == "Gliwice")
+        #expect(store.locationCountryCode == "PL")
+    }
+
+    @Test func savedLocationIsNotShownBeforeOnboardingIsConfirmed() {
+        let store = RadioStore()
+        var settings = store.settings
+        settings.locationSource = .gps
+        store.settings = settings
+        store.hasConfirmedOnboardingThisSession = false
+
+        store.restoreLastAutomaticLocation(savedGliwice)
+
+        #expect(store.locationCoordinate == nil)
+        #expect(store.locationName == nil)
+        // It is still kept, so switching to Auto later can restore it.
+        #expect(store.lastAutomaticLocationName == "Gliwice")
+        #expect(store.lastAutomaticCoordinate != nil)
+    }
+
+    @Test func savedLocationDoesNotReplaceManualLocation() {
+        let store = RadioStore()
+        var settings = store.settings
+        settings.locationSource = .manual
+        settings.manualLatitude = 52.23
+        settings.manualLongitude = 21.01
+        store.settings = settings
+        store.hasConfirmedOnboardingThisSession = true
+
+        store.restoreLastAutomaticLocation(savedGliwice)
+
+        #expect(store.locationCoordinate == nil)
+        #expect(store.lastAutomaticLocationName == "Gliwice")
     }
 }
