@@ -34,8 +34,9 @@ enum LocationTrackingPolicy {
 
 enum LocationRefreshPolicy {
     /// Reuse cached station results until movement reaches the refresh
-    /// threshold. Live location updates have no distance filter of their own,
-    /// so this threshold is applied here, in code.
+    /// threshold. The location manager already filters by the same distance,
+    /// but its first fix is always delivered and coarse fixes jitter, so the
+    /// threshold is applied here as well.
     static func shouldReloadStations(
         from previousCoordinate: CLLocationCoordinate2D?,
         to coordinate: CLLocationCoordinate2D,
@@ -295,32 +296,22 @@ extension RadioStore {
         }
     }
 
-    func handleLocationUpdate(_ update: CLLocationUpdate) {
-        if update.authorizationDenied || update.authorizationDeniedGlobally {
-            applyLocationAuthorizationStatus(.denied)
-            return
-        }
-        if update.authorizationRestricted {
-            applyLocationAuthorizationStatus(.restricted)
-            return
-        }
-        if update.authorizationRequestInProgress {
-            applyLocationAuthorizationStatus(.notDetermined, configureTracking: false)
-            return
-        }
-        if update.insufficientlyInUse || update.locationUnavailable {
-            return
-        }
+    /// A fix from the location manager. A fix can only arrive with access, but
+    /// the cached status may lag behind it, so refresh the status first.
+    func handleLocationManagerFix(_ location: CLLocation) {
         if !hasLocationAccess {
             refreshLocationAuthorizationStatus(configureTracking: false)
         }
-        guard let location = update.location else { return }
-        // A stationary update repeats the position we already have; skip it
-        // unless the city name still needs a retry.
-        if update.isStationary, locationCoordinate != nil, hasResolvedLocationName {
-            return
-        }
         handleLocationFix(location)
+    }
+
+    /// The location manager reports the current status as soon as it starts and
+    /// again whenever the person changes it. Starting tracking after a grant is
+    /// the job of the service session diagnostics, so only a loss of access
+    /// needs to reconfigure tracking here.
+    func handleLocationAuthorizationChange(_ status: CLAuthorizationStatus) {
+        let lostAccess = status == .denied || status == .restricted
+        applyLocationAuthorizationStatus(status, configureTracking: lostAccess)
     }
 
     private var hasResolvedLocationName: Bool {
@@ -409,9 +400,25 @@ extension RadioStore {
         )
     }
 
+    /// Called when connectivity returns. A city lookup that failed while offline
+    /// used to be retried on the next (even stationary) location update; with a
+    /// distance filter a device that is not moving gets none, so retry here.
+    func retryLocationNameAfterReconnect() {
+        resetNameLookupBackoff()
+        refreshLocationNameIfNeeded()
+    }
+
     func handleLocationUpdateFailure(_ error: Error) {
-        guard !Task.isCancelled else { return }
+        let code = (error as? CLError)?.code
+        if let code, LocationErrorPolicy.action(for: code) == .keepTrying {
+            // "Location unknown" and network hiccups are transient: the
+            // manager keeps trying and delivers a fix when it has one.
+            return
+        }
         Log.location.error("Location updates failed: \(error.localizedDescription, privacy: .public)")
+        // The manager has stopped delivering. Drop it so the next
+        // configureLocationUpdates() starts a fresh one.
+        stopLocationUpdates()
         refreshLocationAuthorizationStatus(configureTracking: false)
         if settings.locationSource == .gps && !hasLocationAccess {
             locationName = nil
@@ -541,38 +548,30 @@ extension RadioStore {
     }
 
     func startLocationUpdates() {
-        guard locationUpdatesTask == nil else { return }
-        let taskID = UUID()
-        activeLocationUpdatesID = taskID
-        locationUpdatesTask = Task { [weak self] in
-            guard let self else { return }
-            do {
-                // Station coverage areas are tens of kilometres wide and the
-                // app only reacts to ~1 km of movement, so the default
-                // configuration is enough. .automotiveNavigation keeps the GPS
-                // at navigation accuracy and costs noticeably more battery
-                // during long drives with the screen off.
-                for try await update in CLLocationUpdate.liveUpdates(.default) {
-                    guard !Task.isCancelled else { break }
-                    self.handleLocationUpdate(update)
-                }
-            } catch is CancellationError {
-                // Expected when location tracking is no longer needed.
-            } catch {
-                self.handleLocationUpdateFailure(error)
-            }
-
-            if self.activeLocationUpdatesID == taskID {
-                self.activeLocationUpdatesID = nil
-                self.locationUpdatesTask = nil
-            }
+        guard locationUpdateSource == nil else { return }
+        // Station coverage areas are tens of kilometres wide and the app only
+        // reacts to ~1 km of movement, so ask for a coarse fix and let the
+        // system wake the app only after that much movement. The GPS can then
+        // stay off during long drives with the screen off.
+        let source = LocationUpdateSource(
+            distanceFilter: Self.locationRefreshThresholdKm * 1_000
+        )
+        source.onFix = { [weak self] location in
+            self?.handleLocationManagerFix(location)
         }
+        source.onAuthorizationChange = { [weak self] status in
+            self?.handleLocationAuthorizationChange(status)
+        }
+        source.onFailure = { [weak self] error in
+            self?.handleLocationUpdateFailure(error)
+        }
+        locationUpdateSource = source
+        source.start()
     }
 
     func stopLocationUpdates() {
-        activeLocationUpdatesID = nil
-        locationUpdatesTask?.cancel()
-        locationUpdatesTask = nil
+        locationUpdateSource?.stop()
+        locationUpdateSource = nil
     }
 
     func endBackgroundActivitySession() {

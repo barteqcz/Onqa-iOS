@@ -104,8 +104,7 @@ final class RadioStore {
     var didCheckCatalogForUpdateThisLaunch = false
     var catalogPreparationTask: Task<URL, Error>?
     var catalogDownloadTask: Task<Void, Error>?
-    var locationUpdatesTask: Task<Void, Never>?
-    var activeLocationUpdatesID: UUID?
+    @ObservationIgnored var locationUpdateSource: LocationUpdateSource?
     var locationServiceSession: CLServiceSession?
     var locationServiceDiagnosticsTask: Task<Void, Never>?
     var backgroundActivitySession: CLBackgroundActivitySession?

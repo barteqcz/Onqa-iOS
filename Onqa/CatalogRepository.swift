@@ -13,6 +13,7 @@ extension RadioStore {
         // retryNow() checks the active player's state and safely ignores idle/
         // healthy playback.
         player.retryNow()
+        retryLocationNameAfterReconnect()
         // The first launch is waiting for a connection to download the
         // catalog: start as soon as one is back.
         if catalogStatus == .offline {

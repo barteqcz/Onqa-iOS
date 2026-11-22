@@ -87,6 +87,19 @@ struct ReliabilityTests {
         #expect(LocationFixQuality.isUsable(horizontalAccuracy: 25_000))
     }
 
+    // MARK: Location manager failures
+
+    @Test func transientLocationErrorsKeepTracking() {
+        #expect(LocationErrorPolicy.action(for: .locationUnknown) == .keepTrying)
+        #expect(LocationErrorPolicy.action(for: .network) == .keepTrying)
+    }
+
+    @Test func fatalLocationErrorsStopTracking() {
+        // After a denial the manager has stopped, so the next
+        // configureLocationUpdates() has to be able to start a fresh one.
+        #expect(LocationErrorPolicy.action(for: .denied) == .stopTracking)
+    }
+
     // MARK: Stream metadata
 
     @Test func onlyTrackTitleIdentifiersAreAccepted() {
