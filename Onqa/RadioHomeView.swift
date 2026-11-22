@@ -234,7 +234,9 @@ struct RadioHomeView: View {
     private var stationList: some View {
         GeometryReader { geometry in
             let gridWidth = max(0, geometry.size.width - Self.stationContentHorizontalInset * 2)
-            let isPhonePortrait = horizontalSizeClass == .compact && verticalSizeClass == .regular
+            let isPhonePortrait = UIDevice.current.userInterfaceIdiom == .phone
+                && horizontalSizeClass == .compact
+                && verticalSizeClass == .regular
             let columns = stationColumns(for: isPhonePortrait ? 0 : gridWidth)
 
             ScrollView {
