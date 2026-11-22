@@ -133,6 +133,10 @@ struct RadioHomeView: View {
 
     private static let searchAnimation: Animation = .smooth(duration: 0.32)
 
+    /// How long the context menu takes to dismiss. The favorite re-sort waits
+    /// this long so the pressed card is free to slide (see `onFavorite`).
+    private static let favoriteMenuDismissDelay: Duration = .milliseconds(400)
+
     private static let stationMinimumWidth: CGFloat = 320
     private static let stationContentHorizontalInset: CGFloat = 16
 
@@ -549,7 +553,7 @@ struct RadioHomeView: View {
                             // card jump instead of slide, so wait for the
                             // menu to finish first.
                             Task { @MainActor in
-                                try? await Task.sleep(for: .milliseconds(550))
+                                try? await Task.sleep(for: Self.favoriteMenuDismissDelay)
                                 withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) {
                                     store.toggleFavorite(station)
                                 }
