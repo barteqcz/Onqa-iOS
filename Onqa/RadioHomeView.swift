@@ -135,7 +135,7 @@ struct RadioHomeView: View {
 
     /// How long the context menu takes to dismiss. The favorite re-sort waits
     /// this long so the pressed card is free to slide (see `onFavorite`).
-    private static let favoriteMenuDismissDelay: Duration = .milliseconds(400)
+    private static let favoriteMenuDismissDelay: Duration = .milliseconds(650)
 
     private static let stationMinimumWidth: CGFloat = 320
     private static let stationContentHorizontalInset: CGFloat = 16
