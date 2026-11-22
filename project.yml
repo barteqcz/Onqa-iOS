@@ -18,8 +18,8 @@ targets:
       path: Onqa/Info.plist
       properties:
         CFBundleDisplayName: Onqa
-        CFBundleShortVersionString: "1.2.2"
-        CFBundleVersion: "9"
+        CFBundleShortVersionString: "1.2.3"
+        CFBundleVersion: "10"
         LSApplicationCategoryType: public.app-category.music
         LSRequiresIPhoneOS: true
         NSLocationWhenInUseUsageDescription: "Onqa uses your location to find nearby radio stations and switch them as you move."
