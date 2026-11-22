@@ -39,6 +39,33 @@ struct OnqaTests {
             #expect(station.streamURL(useHQ: false) == nil)
         }
     }
+    @Test func androidLocationRequestConfigurationIsPreservedOnIOS() {
+        #expect(LocationRequestConfiguration.desiredAccuracy == kCLLocationAccuracyHundredMeters)
+        #expect(LocationRequestConfiguration.requestedInterval == 30)
+        #expect(LocationRequestConfiguration.minimumUpdateInterval == 15)
+        #expect(LocationRequestConfiguration.minimumDistance == 1_000)
+    }
+
+    @Test func locationUpdatesRespectAndroidMinimumInterval() {
+        let first = Date(timeIntervalSince1970: 1_000)
+        #expect(LocationUpdateTimingPolicy.shouldDeliver(timestamp: first, after: nil))
+        #expect(!LocationUpdateTimingPolicy.shouldDeliver(
+            timestamp: first.addingTimeInterval(14.9), after: first
+        ))
+        #expect(LocationUpdateTimingPolicy.shouldDeliver(
+            timestamp: first.addingTimeInterval(15), after: first
+        ))
+        #expect(!LocationUpdateTimingPolicy.shouldDeliver(
+            timestamp: first.addingTimeInterval(-1), after: first
+        ))
+    }
+
+    @Test func locationFixQualityDoesNotAddAnAndroidAbsentAccuracyThreshold() {
+        #expect(!LocationFixQuality.isUsable(horizontalAccuracy: -1))
+        #expect(LocationFixQuality.isUsable(horizontalAccuracy: 0))
+        #expect(LocationFixQuality.isUsable(horizontalAccuracy: 1_000))
+    }
+
     @Test func coreLocationDistanceForOneDegreeOfLongitude() {
         let distance = StationProcessor.distanceKm(
             from: 0,

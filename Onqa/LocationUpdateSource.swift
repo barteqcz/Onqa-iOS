@@ -20,6 +20,20 @@ enum LocationErrorPolicy {
     }
 }
 
+enum LocationRequestConfiguration {
+    static let desiredAccuracy: CLLocationAccuracy = kCLLocationAccuracyHundredMeters
+    static let requestedInterval: TimeInterval = 30
+    static let minimumUpdateInterval: TimeInterval = 15
+    static let minimumDistance: CLLocationDistance = 1_000
+}
+
+enum LocationUpdateTimingPolicy {
+    static func shouldDeliver(timestamp: Date, after previousTimestamp: Date?) -> Bool {
+        guard let previousTimestamp else { return true }
+        return timestamp.timeIntervalSince(previousTimestamp) >= LocationRequestConfiguration.minimumUpdateInterval
+    }
+}
+
 /// A fix reduced to plain values, so it can cross from the Core Location
 /// delegate callback to the main actor without sharing a reference type.
 private struct LocationSample: Sendable {
@@ -65,26 +79,21 @@ private struct LocationSample: Sendable {
 /// the thread the manager was created on.
 @MainActor
 final class LocationUpdateSource: NSObject, CLLocationManagerDelegate {
-    /// Station coverage areas are tens of kilometres wide, so a fix good to
-    /// about 1 km is plenty. Anything finer would only cost battery.
-    static let desiredAccuracy = kCLLocationAccuracyKilometer
+    static let desiredAccuracy = LocationRequestConfiguration.desiredAccuracy
+
+    private var lastDeliveredLocationTimestamp: Date?
 
     var onFix: (@MainActor (CLLocation) -> Void)?
     var onAuthorizationChange: (@MainActor (CLAuthorizationStatus) -> Void)?
     var onFailure: (@MainActor (Error) -> Void)?
 
     private let manager = CLLocationManager()
-    private let distanceFilter: CLLocationDistance
-
-    init(distanceFilter: CLLocationDistance) {
-        self.distanceFilter = distanceFilter
-        super.init()
-    }
 
     func start() {
+        lastDeliveredLocationTimestamp = nil
         manager.delegate = self
-        manager.desiredAccuracy = Self.desiredAccuracy
-        manager.distanceFilter = distanceFilter
+        manager.desiredAccuracy = LocationRequestConfiguration.desiredAccuracy
+        manager.distanceFilter = LocationRequestConfiguration.minimumDistance
         // Playback keeps the app running while updates matter. Automatic
         // pausing can stop delivery at a red light and not resume reliably.
         manager.pausesLocationUpdatesAutomatically = false
@@ -97,6 +106,7 @@ final class LocationUpdateSource: NSObject, CLLocationManagerDelegate {
     func stop() {
         manager.stopUpdatingLocation()
         manager.delegate = nil
+        lastDeliveredLocationTimestamp = nil
         onFix = nil
         onAuthorizationChange = nil
         onFailure = nil
@@ -113,7 +123,13 @@ final class LocationUpdateSource: NSObject, CLLocationManagerDelegate {
         guard let latest = locations.last else { return }
         let sample = LocationSample(latest)
         Task { @MainActor [weak self] in
-            self?.onFix?(sample.location)
+            guard let self,
+                  LocationUpdateTimingPolicy.shouldDeliver(
+                    timestamp: sample.timestamp,
+                    after: self.lastDeliveredLocationTimestamp
+                  ) else { return }
+            self.lastDeliveredLocationTimestamp = sample.timestamp
+            self.onFix?(sample.location)
         }
     }
 
