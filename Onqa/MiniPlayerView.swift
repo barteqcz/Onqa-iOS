@@ -82,13 +82,16 @@ private struct MiniPlayerSwipe: ViewModifier {
     @State private var offsetX: CGFloat = 0
     @State private var opacity: Double = 1
     @State private var width: CGFloat = 400
-    @State private var isSettling = false
+    private enum Phase { case idle, slidingOut, slidingIn }
+    @State private var phase: Phase = .idle
+    /// Bumped on every commit so a superseded slide-in never resets state.
+    @State private var generation = 0
     @State private var hapticTrigger = 0
     /// Only used to notice a cancelled drag (e.g. a system interruption).
     @GestureState private var isDragging = false
 
-    private let distanceThreshold: CGFloat = 70
-    private let flickThreshold: CGFloat = 160
+    private let distanceThreshold: CGFloat = 50
+    private let flickThreshold: CGFloat = 120
     private let resistance: CGFloat = 0.6
     private let slideOut: Duration = .milliseconds(130)
     private let slideIn: Duration = .milliseconds(340)
@@ -101,7 +104,7 @@ private struct MiniPlayerSwipe: ViewModifier {
             // simultaneous so the play/pause button and the hit-target tap keep working
             .simultaneousGesture(isEnabled ? swipe : nil)
             .onChange(of: isDragging) { _, dragging in
-                if !dragging && !isSettling && offsetX != 0 { springBack() }
+                if !dragging && phase == .idle && offsetX != 0 { springBack() }
             }
             .sensoryFeedback(.impact(flexibility: .soft), trigger: hapticTrigger)
             .accessibilityAction(named: Text("Previous station")) {
@@ -117,14 +120,14 @@ private struct MiniPlayerSwipe: ViewModifier {
     }
 
     private var swipe: some Gesture {
-        DragGesture(minimumDistance: 20)
+        DragGesture(minimumDistance: 12)
             .updating($isDragging) { _, state, _ in state = true }
             .onChanged { value in
-                guard !isSettling, isHorizontal(value) else { return }
+                guard phase == .idle, isHorizontal(value) else { return }
                 offsetX = value.translation.width * resistance
             }
             .onEnded { value in
-                guard !isSettling else { return }
+                guard phase != .slidingOut else { return }
                 let drag = value.translation.width
                 let flick = value.predictedEndTranslation.width
                 guard isHorizontal(value) else { return springBack() }
@@ -144,7 +147,12 @@ private struct MiniPlayerSwipe: ViewModifier {
     }
 
     private func commit(direction: CGFloat, action: @escaping () -> Void) {
-        isSettling = true
+        // A swipe is accepted while the previous slide-in is still running,
+        // so stations can be skipped quickly; the new slide-out simply
+        // starts from wherever the bar currently is.
+        generation += 1
+        let current = generation
+        phase = .slidingOut
         hapticTrigger += 1
 
         // 1. Slide the current bar out in the swipe direction.
@@ -166,13 +174,14 @@ private struct MiniPlayerSwipe: ViewModifier {
                 opacity = 0
             }
 
-            // 3. Slide the new bar in.
+            // 3. Slide the new bar in. Input is accepted again right away.
+            phase = .slidingIn
             withAnimation(.spring(response: 0.34, dampingFraction: 0.85)) {
                 offsetX = 0
                 opacity = 1
             }
             try? await Task.sleep(for: slideIn)
-            isSettling = false
+            if generation == current { phase = .idle }
         }
     }
 }
