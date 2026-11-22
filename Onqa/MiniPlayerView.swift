@@ -67,8 +67,8 @@ private struct MiniPlayerMetadataView: View {
 
 // MARK: - Mini player swipe
 
-/// Horizontal swipe on the mini player: left plays the previous station,
-/// right plays the next one.
+/// Horizontal swipe on the mini player: right plays the previous station,
+/// left plays the next one.
 ///
 /// The bar follows the finger, then on commit slides out in the swipe
 /// direction, the station changes while it is off-screen, and the new bar
@@ -90,8 +90,8 @@ private struct MiniPlayerSwipe: ViewModifier {
     private let distanceThreshold: CGFloat = 70
     private let flickThreshold: CGFloat = 160
     private let resistance: CGFloat = 0.6
-    private let slideOut: Duration = .milliseconds(90)
-    private let slideIn: Duration = .milliseconds(260)
+    private let slideOut: Duration = .milliseconds(130)
+    private let slideIn: Duration = .milliseconds(340)
 
     func body(content: Content) -> some View {
         content
@@ -130,9 +130,9 @@ private struct MiniPlayerSwipe: ViewModifier {
                 guard isHorizontal(value) else { return springBack() }
 
                 if drag < -distanceThreshold || flick < -flickThreshold {
-                    commit(direction: -1, action: onPrevious)   // left -> previous
+                    commit(direction: -1, action: onNext)       // left -> next
                 } else if drag > distanceThreshold || flick > flickThreshold {
-                    commit(direction: 1, action: onNext)        // right -> next
+                    commit(direction: 1, action: onPrevious)   // right -> previous
                 } else {
                     springBack()
                 }
@@ -140,18 +140,15 @@ private struct MiniPlayerSwipe: ViewModifier {
     }
 
     private func springBack() {
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) { offsetX = 0 }
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { offsetX = 0 }
     }
 
     private func commit(direction: CGFloat, action: @escaping () -> Void) {
         isSettling = true
         hapticTrigger += 1
-        // The slide runs opposite to the swipe: the old bar leaves the way
-        // the new one is "coming from" in the station list.
-        let direction = -direction
 
         // 1. Slide the current bar out in the swipe direction.
-        withAnimation(.easeIn(duration: 0.09)) {
+        withAnimation(.easeIn(duration: 0.13)) {
             offsetX = direction * width
             opacity = 0
         }
@@ -170,7 +167,7 @@ private struct MiniPlayerSwipe: ViewModifier {
             }
 
             // 3. Slide the new bar in.
-            withAnimation(.spring(response: 0.26, dampingFraction: 0.85)) {
+            withAnimation(.spring(response: 0.34, dampingFraction: 0.85)) {
                 offsetX = 0
                 opacity = 1
             }
