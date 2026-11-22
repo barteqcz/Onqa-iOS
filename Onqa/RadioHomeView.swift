@@ -543,8 +543,16 @@ struct RadioHomeView: View {
                         accent: accent,
                         onPlay: { store.play(station) },
                         onFavorite: {
-                            withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) {
-                                store.toggleFavorite(station)
+                            // The context menu keeps the pressed card pinned
+                            // at its old slot until its dismiss animation
+                            // ends. Re-sorting during that window made the
+                            // card jump instead of slide, so wait for the
+                            // menu to finish first.
+                            Task { @MainActor in
+                                try? await Task.sleep(for: .milliseconds(550))
+                                withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) {
+                                    store.toggleFavorite(station)
+                                }
                             }
                         }
                     )
