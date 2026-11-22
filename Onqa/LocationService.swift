@@ -351,39 +351,80 @@ extension RadioStore {
         configureLocationUpdates()
     }
 
+    /// How long the background session outlives a stop in playback while the
+    /// app is in the foreground. Skipping, buffering, reconnecting and short interruptions
+    /// flip `isPlaying` for a moment; tearing the Core Location sessions down
+    /// and recreating them every time is churn that can leave iOS showing the
+    /// blue location indicator for the app long after it has stopped.
+    private static let locationStopGracePeriod: Duration = .seconds(8)
+
     func configureLocationUpdates() {
         guard settings.locationSource == .gps else {
+            cancelPendingLocationStop()
             stopLocationUpdates()
             endBackgroundActivitySession()
             endLocationServiceSession()
             return
         }
 
-        let shouldTrack = hasConfirmedOnboardingThisSession
+        if shouldTrackLocation {
+            ensureLocationServiceSession()
+            if player.isPlaying {
+                cancelPendingLocationStop()
+                // Create while foregrounded so When In Use authorization can continue
+                // delivering location events after the app enters the background.
+                if backgroundActivitySession == nil {
+                    backgroundActivitySession = CLBackgroundActivitySession()
+                }
+            } else if backgroundActivitySession != nil {
+                // Playback stopped while the app is visible: keep the
+                // background session for a moment in case it resumes.
+                scheduleLocationStop()
+            } else {
+                cancelPendingLocationStop()
+            }
+            startLocationUpdates()
+        } else {
+            // Not tracking (e.g. in the background with nothing playing, or
+            // no access). Tear down immediately: a suspended app must never
+            // be left holding a location session, or iOS can keep showing
+            // the blue indicator for it.
+            cancelPendingLocationStop()
+            stopLocationUpdates()
+            endBackgroundActivitySession()
+        }
+    }
+
+    private var shouldTrackLocation: Bool {
+        hasConfirmedOnboardingThisSession
             && LocationTrackingPolicy.shouldTrack(
                 source: settings.locationSource,
                 hasLocationAccess: hasLocationAccess,
                 appIsActive: isAppActive,
                 isPlaying: player.isPlaying
             )
+    }
 
-        guard shouldTrack else {
-            stopLocationUpdates()
-            endBackgroundActivitySession()
-            return
-        }
-
-        ensureLocationServiceSession()
-        if player.isPlaying {
-            // Create while foregrounded so When In Use authorization can continue
-            // delivering location events after the app enters the background.
-            if backgroundActivitySession == nil {
-                backgroundActivitySession = CLBackgroundActivitySession()
+    private func scheduleLocationStop() {
+        // Keep the earliest deadline; repeated calls must not push it back.
+        guard locationStopTask == nil else { return }
+        locationStopTask = Task { [weak self] in
+            try? await Task.sleep(for: Self.locationStopGracePeriod)
+            guard !Task.isCancelled, let self else { return }
+            self.locationStopTask = nil
+            // Re-evaluate: state may have changed during the grace period.
+            if !self.shouldTrackLocation {
+                self.stopLocationUpdates()
             }
-        } else {
-            endBackgroundActivitySession()
+            if !self.player.isPlaying {
+                self.endBackgroundActivitySession()
+            }
         }
-        startLocationUpdates()
+    }
+
+    private func cancelPendingLocationStop() {
+        locationStopTask?.cancel()
+        locationStopTask = nil
     }
 
     func ensureLocationServiceSession() {

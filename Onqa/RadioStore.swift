@@ -109,6 +109,8 @@ final class RadioStore {
     var locationServiceSession: CLServiceSession?
     var locationServiceDiagnosticsTask: Task<Void, Never>?
     var backgroundActivitySession: CLBackgroundActivitySession?
+    /// Pending, debounced teardown of location tracking (see `configureLocationUpdates`).
+    @ObservationIgnored var locationStopTask: Task<Void, Never>?
     var reverseGeocodingTask: Task<Void, Never>?
     var reverseGeocodingRequest: MKReverseGeocodingRequest?
     var nameLookupFailures = 0
