@@ -68,28 +68,41 @@ private struct MiniPlayerMetadataView: View {
 // MARK: - Mini player swipe
 
 /// Horizontal swipe on the mini player: left plays the previous station,
-/// right plays the next one. The bar follows the finger with some resistance
-/// and springs back on release.
+/// right plays the next one.
+///
+/// The bar follows the finger, then on commit slides out in the swipe
+/// direction, the station changes while it is off-screen, and the new bar
+/// slides in from the opposite side. All state lives here (outside the
+/// `.id(station.id)` rebuild) so the motion is continuous.
 private struct MiniPlayerSwipe: ViewModifier {
     let isEnabled: Bool
     let onPrevious: () -> Void
     let onNext: () -> Void
 
-    /// Resets itself if the system cancels the gesture, so the bar can never
-    /// get stuck off-centre.
-    @GestureState private var dragX: CGFloat = 0
+    @State private var offsetX: CGFloat = 0
+    @State private var opacity: Double = 1
+    @State private var width: CGFloat = 400
+    @State private var isSettling = false
     @State private var hapticTrigger = 0
+    /// Only used to notice a cancelled drag (e.g. a system interruption).
+    @GestureState private var isDragging = false
 
     private let distanceThreshold: CGFloat = 70
     private let flickThreshold: CGFloat = 160
     private let resistance: CGFloat = 0.6
+    private let slideOut: Duration = .milliseconds(150)
+    private let slideIn: Duration = .milliseconds(420)
 
     func body(content: Content) -> some View {
         content
-            .offset(x: dragX)
-            .animation(.interactiveSpring(response: 0.25, dampingFraction: 0.85), value: dragX)
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+            .offset(x: offsetX)
+            .opacity(opacity)
             // simultaneous so the play/pause button and the hit-target tap keep working
             .simultaneousGesture(isEnabled ? swipe : nil)
+            .onChange(of: isDragging) { _, dragging in
+                if !dragging && !isSettling && offsetX != 0 { springBack() }
+            }
             .sensoryFeedback(.impact(flexibility: .soft), trigger: hapticTrigger)
             .accessibilityAction(named: Text("Previous station")) {
                 if isEnabled { onPrevious() }
@@ -105,23 +118,62 @@ private struct MiniPlayerSwipe: ViewModifier {
 
     private var swipe: some Gesture {
         DragGesture(minimumDistance: 20)
-            .updating($dragX) { value, state, _ in
-                guard isHorizontal(value) else { return }
-                state = value.translation.width * resistance
+            .updating($isDragging) { _, state, _ in state = true }
+            .onChanged { value in
+                guard !isSettling, isHorizontal(value) else { return }
+                offsetX = value.translation.width * resistance
             }
             .onEnded { value in
-                guard isHorizontal(value) else { return }
-                let width = value.translation.width
+                guard !isSettling else { return }
+                let drag = value.translation.width
                 let flick = value.predictedEndTranslation.width
+                guard isHorizontal(value) else { return springBack() }
 
-                if width < -distanceThreshold || flick < -flickThreshold {
-                    hapticTrigger += 1
-                    onPrevious()
-                } else if width > distanceThreshold || flick > flickThreshold {
-                    hapticTrigger += 1
-                    onNext()
+                if drag < -distanceThreshold || flick < -flickThreshold {
+                    commit(direction: -1, action: onPrevious)   // left -> previous
+                } else if drag > distanceThreshold || flick > flickThreshold {
+                    commit(direction: 1, action: onNext)        // right -> next
+                } else {
+                    springBack()
                 }
             }
+    }
+
+    private func springBack() {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { offsetX = 0 }
+    }
+
+    private func commit(direction: CGFloat, action: @escaping () -> Void) {
+        isSettling = true
+        hapticTrigger += 1
+
+        // 1. Slide the current bar out in the swipe direction.
+        withAnimation(.easeIn(duration: 0.15)) {
+            offsetX = direction * width
+            opacity = 0
+        }
+
+        Task { @MainActor in
+            try? await Task.sleep(for: slideOut)
+
+            // 2. Switch station while the bar is off-screen and park the
+            //    new bar on the opposite side, without animating.
+            action()
+            var jump = Transaction()
+            jump.disablesAnimations = true
+            withTransaction(jump) {
+                offsetX = -direction * width * 0.6
+                opacity = 0
+            }
+
+            // 3. Slide the new bar in.
+            withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+                offsetX = 0
+                opacity = 1
+            }
+            try? await Task.sleep(for: slideIn)
+            isSettling = false
+        }
     }
 }
 
