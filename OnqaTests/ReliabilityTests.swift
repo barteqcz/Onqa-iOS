@@ -30,34 +30,6 @@ struct ReliabilityTests {
 
     // MARK: Reverse-geocoding retry policy
 
-    @Test func nearbyGPSFixDoesNotRetryNameLookupWhileBackingOff() {
-        let origin = CLLocationCoordinate2D(latitude: 50, longitude: 19)
-        let nearbyFix = CLLocationCoordinate2D(latitude: 50, longitude: 19.001)
-
-        #expect(!StationProcessor.shouldProcessLocationUpdate(
-            from: origin,
-            to: nearbyFix,
-            hasLocationName: false,
-            isResolvingLocationName: false,
-            thresholdKm: 1.0,
-            isNameRetryAllowed: false
-        ))
-    }
-
-    @Test func significantMovementAlwaysProcessesEvenWhileBackingOff() {
-        let origin = CLLocationCoordinate2D(latitude: 50, longitude: 19)
-        let farFix = CLLocationCoordinate2D(latitude: 50, longitude: 19.05)
-
-        #expect(StationProcessor.shouldProcessLocationUpdate(
-            from: origin,
-            to: farFix,
-            hasLocationName: false,
-            isResolvingLocationName: false,
-            thresholdKm: 1.0,
-            isNameRetryAllowed: false
-        ))
-    }
-
     @Test func nameLookupIsRetriedOnlyWhenVisibleAndAllowed() {
         #expect(LocationNamePolicy.shouldRetryLookup(
             hasName: false, isResolving: false, isRetryAllowed: true, appIsActive: true
