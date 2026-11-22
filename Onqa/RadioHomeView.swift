@@ -135,6 +135,7 @@ struct RadioHomeView: View {
     private static let searchAnimation: Animation = .smooth(duration: 0.32)
 
     private static let stationMinimumWidth: CGFloat = 320
+    private static let stationContentHorizontalInset: CGFloat = 16
 
     /// The column count is derived from the measured width instead of using an
     /// `.adaptive` GridItem: the adaptive layout could keep its landscape
@@ -255,11 +256,17 @@ struct RadioHomeView: View {
 
                 stationContent
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, Self.stationContentHorizontalInset)
 
             // Keep a little breathing room below the final station box.
             Color.clear
                 .frame(height: 14)
+        }
+        // Measure the viewport, not the LazyVGrid. The viewport is resized on
+        // rotation, so the column count follows the current available width.
+        // The grid is inset by 16pt on each horizontal edge inside the list.
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: {
+            stationGridWidth = max(0, $0 - Self.stationContentHorizontalInset * 2)
         }
         // Keep a small inset so the first station's outline is not clipped.
         .contentMargins(.top, stationListTopInset, for: .scrollContent)
@@ -545,9 +552,6 @@ struct RadioHomeView: View {
                     .equatable()
                     .transition(.opacity.combined(with: .scale(scale: 0.97)))
                 }
-            }
-            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: {
-                stationGridWidth = $0
             }
             .animation(.snappy(duration: 0.28), value: visibleStations.map(\.id))
         }
