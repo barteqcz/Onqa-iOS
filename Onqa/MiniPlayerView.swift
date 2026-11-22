@@ -317,11 +317,6 @@ struct MiniPlayerView: View {
                     onNext: store.playNext
                 )
             )
-            // Favoriting the playing station recolors the player (accent and
-            // glass tint) in the same animated update that slides its card to
-            // the top of the list. Recoloring glass inside that spring breaks
-            // the card's slide, so the favorite-driven recolor is not animated.
-            .transaction(value: isFavorite) { $0.animation = nil }
         }
     }
 }
