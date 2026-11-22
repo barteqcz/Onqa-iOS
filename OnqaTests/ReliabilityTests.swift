@@ -78,30 +78,13 @@ struct ReliabilityTests {
 
     // MARK: Fix quality
 
-    @Test func invalidAndStaleFixesAreRejected() {
-        #expect(!LocationFixQuality.isUsable(horizontalAccuracy: -1, age: 1, isReducedAccuracy: false))
-        #expect(!LocationFixQuality.isUsable(horizontalAccuracy: -1, age: 1, isReducedAccuracy: true))
-        #expect(!LocationFixQuality.isUsable(horizontalAccuracy: 30, age: 3_600, isReducedAccuracy: false))
-        #expect(!LocationFixQuality.isUsable(horizontalAccuracy: 100_000, age: 1, isReducedAccuracy: false))
-    }
-
-    @Test func coarseCellFixesAreStillUsableForWideCoverageAreas() {
-        #expect(LocationFixQuality.isUsable(horizontalAccuracy: 3_000, age: 5, isReducedAccuracy: false))
-        #expect(LocationFixQuality.isUsable(horizontalAccuracy: 10, age: 5, isReducedAccuracy: false))
-    }
-
-    @Test func approximateLocationIsAcceptedRegardlessOfAge() {
-        #expect(LocationFixQuality.isUsable(horizontalAccuracy: 15_000, age: 3_600, isReducedAccuracy: true))
-        #expect(!LocationFixQuality.isUsable(horizontalAccuracy: 80_000, age: 1, isReducedAccuracy: true))
-    }
-
-    @Test func clearlyMorePreciseFixRefinesACoarseOne() {
-        #expect(LocationFixQuality.isRefinement(previousAccuracy: 3_000, newAccuracy: 50))
-        #expect(LocationFixQuality.isRefinement(previousAccuracy: 3_000, newAccuracy: 1_500))
-        #expect(!LocationFixQuality.isRefinement(previousAccuracy: 3_000, newAccuracy: 2_000))
-        #expect(!LocationFixQuality.isRefinement(previousAccuracy: 800, newAccuracy: 10))
-        #expect(!LocationFixQuality.isRefinement(previousAccuracy: nil, newAccuracy: 10))
-        #expect(!LocationFixQuality.isRefinement(previousAccuracy: 3_000, newAccuracy: -1))
+    @Test func onlyInvalidFixesAreRejected() {
+        #expect(!LocationFixQuality.isUsable(horizontalAccuracy: -1))
+        #expect(LocationFixQuality.isUsable(horizontalAccuracy: 0))
+        #expect(LocationFixQuality.isUsable(horizontalAccuracy: 10))
+        // Cell-tower and "Approximate Location" fixes are accepted, as on Android.
+        #expect(LocationFixQuality.isUsable(horizontalAccuracy: 3_000))
+        #expect(LocationFixQuality.isUsable(horizontalAccuracy: 25_000))
     }
 
     // MARK: Stream metadata

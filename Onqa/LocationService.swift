@@ -50,39 +50,12 @@ enum LocationRefreshPolicy {
     }
 }
 enum LocationFixQuality {
-    /// Cell-tower based fixes can be several kilometres off, which is still
-    /// fine for coverage areas tens of kilometres wide; anything coarser is
-    /// treated as noise.
-    static let maxPreciseAccuracy: CLLocationAccuracy = 20_000
-    /// With "Approximate Location" the system itself reports coarse fixes.
-    static let maxReducedAccuracy: CLLocationAccuracy = 50_000
-    /// Core Location may hand out a cached fix first; a stale one must not
-    /// decide the station list.
-    static let maxPreciseAge: TimeInterval = 300
-    /// Fixes at least this precise are never replaced by a "refinement".
-    static let refinementFloor: CLLocationAccuracy = 1_000
-
-    static func isUsable(
-        horizontalAccuracy: CLLocationAccuracy,
-        age: TimeInterval,
-        isReducedAccuracy: Bool
-    ) -> Bool {
-        // A negative accuracy means the coordinate is invalid.
-        guard horizontalAccuracy >= 0 else { return false }
-        if isReducedAccuracy {
-            return horizontalAccuracy <= maxReducedAccuracy
-        }
-        return horizontalAccuracy <= maxPreciseAccuracy && age <= maxPreciseAge
-    }
-
-    /// A first coarse fix must not stick until the listener moves 1 km: a
-    /// later fix that is at least twice as accurate replaces it.
-    static func isRefinement(
-        previousAccuracy: CLLocationAccuracy?,
-        newAccuracy: CLLocationAccuracy
-    ) -> Bool {
-        guard let previousAccuracy, newAccuracy >= 0 else { return false }
-        return previousAccuracy > refinementFloor && newAccuracy <= previousAccuracy / 2
+    /// Matches the Android app: fixes are accepted whatever their accuracy, so
+    /// "Approximate Location" works as well as precise location (station
+    /// coverage areas are tens of kilometres wide). Only an invalid fix, which
+    /// Core Location marks with a negative accuracy, is dropped.
+    static func isUsable(horizontalAccuracy: CLLocationAccuracy) -> Bool {
+        horizontalAccuracy >= 0
     }
 }
 
@@ -350,10 +323,6 @@ extension RadioStore {
         handleLocationFix(location)
     }
 
-    var isLocationAccuracyReduced: Bool {
-        authorizationProbe.accuracyAuthorization == .reducedAccuracy
-    }
-
     private var hasResolvedLocationName: Bool {
         locationName?
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -362,23 +331,15 @@ extension RadioStore {
 
     func handleLocationFix(_ location: CLLocation) {
         guard settings.locationSource == .gps else { return }
-        guard LocationFixQuality.isUsable(
-            horizontalAccuracy: location.horizontalAccuracy,
-            age: -location.timestamp.timeIntervalSinceNow,
-            isReducedAccuracy: isLocationAccuracyReduced
-        ) else { return }
+        guard LocationFixQuality.isUsable(horizontalAccuracy: location.horizontalAccuracy) else { return }
 
         let hasLocationName = hasResolvedLocationName
-        let isRefinement = LocationFixQuality.isRefinement(
-            previousAccuracy: lastAcceptedHorizontalAccuracy,
-            newAccuracy: location.horizontalAccuracy
-        )
-        let movedEnough = isRefinement || LocationRefreshPolicy.shouldReloadStations(
+        let movedEnough = LocationRefreshPolicy.shouldReloadStations(
             from: locationCoordinate,
             to: location.coordinate,
             thresholdKm: Self.locationRefreshThresholdKm
         )
-        let shouldProcess = isRefinement || StationProcessor.shouldProcessLocationUpdate(
+        let shouldProcess = StationProcessor.shouldProcessLocationUpdate(
             from: locationCoordinate,
             to: location.coordinate,
             hasLocationName: hasLocationName,
@@ -403,7 +364,6 @@ extension RadioStore {
         locationPermissionDenied = false
         if movedEnough {
             locationCoordinate = location.coordinate
-            lastAcceptedHorizontalAccuracy = location.horizontalAccuracy
         }
         lastAutomaticCoordinate = locationCoordinate ?? location.coordinate
         if isAppActive {
