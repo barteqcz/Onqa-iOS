@@ -66,12 +66,27 @@ struct OnqaTests {
         ))
     }
 
-    @Test func nearbyGPSFixCanRetryMissingCityName() {
+    @Test func nearbyGPSFixDoesNotBypassMovementThresholdWhenCityNameIsMissing() {
         let origin = CLLocationCoordinate2D(latitude: 50, longitude: 19)
         let nearbyFix = CLLocationCoordinate2D(latitude: 50, longitude: 19.001)
+        let significantFix = CLLocationCoordinate2D(latitude: 50, longitude: 19.02)
 
+        #expect(!StationProcessor.shouldProcessLocationUpdate(
+            from: origin,
+            to: nearbyFix,
+            hasLocationName: false,
+            isResolvingLocationName: false,
+            thresholdKm: 1.0
+        ))
         #expect(StationProcessor.shouldProcessLocationUpdate(
             from: origin,
+            to: significantFix,
+            hasLocationName: false,
+            isResolvingLocationName: false,
+            thresholdKm: 1.0
+        ))
+        #expect(StationProcessor.shouldProcessLocationUpdate(
+            from: nil,
             to: nearbyFix,
             hasLocationName: false,
             isResolvingLocationName: false,

@@ -23,12 +23,9 @@ enum StationProcessor {
         ) >= thresholdKm
     }
 
-    /// A cached GPS fix can still be useful when the city name is missing.
-    /// Keep the 1 km threshold for station recalculation, but don't suppress a
-    /// retry of reverse geocoding just because the coordinates are nearby.
-    /// `isNameRetryAllowed` is false while a failed lookup is still backing
-    /// off, so a persistent failure (offline, no city at that point) is not
-    /// retried on every GPS update.
+    /// Accept the initial fix, then process location changes only after
+    /// the listener has moved by at least the configured distance. City-name
+    /// lookup retries must not bypass this movement threshold.
     static func shouldProcessLocationUpdate(
         from previousCoordinate: CLLocationCoordinate2D?,
         to coordinate: CLLocationCoordinate2D,
@@ -38,10 +35,7 @@ enum StationProcessor {
         isNameRetryAllowed: Bool = true
     ) -> Bool {
         guard let previousCoordinate else { return true }
-        if hasMoved(atLeast: thresholdKm, from: previousCoordinate, to: coordinate) {
-            return true
-        }
-        return !hasLocationName && !isResolvingLocationName && isNameRetryAllowed
+        return hasMoved(atLeast: thresholdKm, from: previousCoordinate, to: coordinate)
     }
 
     static func groupAndSort(_ allStations: [RadioStation], favorites: Set<String>) -> [RadioStation] {
