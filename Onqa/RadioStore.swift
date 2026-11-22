@@ -131,7 +131,7 @@ final class RadioStore {
     var lastAutomaticCatalogStations: [RadioStation]?
     var lastAutomaticCatalogCoordinate: CLLocationCoordinate2D?
 
-    static let locationRefreshThresholdKm = 1.0
+    static let locationRefreshThresholdKm = LocationRequestConfiguration.minimumDistance / 1_000
 
     private static let settingsKey = "onqa.settings.v1"
     private static let favoritesKey = "onqa.favorites.v1"
