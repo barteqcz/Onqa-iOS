@@ -78,8 +78,6 @@ private struct TopScrollEdgeEffect: ViewModifier {
 struct RadioHomeView: View {
     @Bindable var store: RadioStore
     @Environment(\.scenePhase) private var scenePhase
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.colorScheme) private var colorScheme
     // The environment locale follows the system's Measurement System, so cards
     // update if it is changed in Settings while the app is running.
@@ -234,10 +232,7 @@ struct RadioHomeView: View {
     private var stationList: some View {
         GeometryReader { geometry in
             let gridWidth = max(0, geometry.size.width - Self.stationContentHorizontalInset * 2)
-            let isPhonePortrait = UIDevice.current.userInterfaceIdiom == .phone
-                && horizontalSizeClass == .compact
-                && verticalSizeClass == .regular
-            let columns = stationColumns(for: isPhonePortrait ? 0 : gridWidth)
+            let columns = stationColumns(for: gridWidth)
 
             ScrollView {
                 VStack(spacing: 14) {
