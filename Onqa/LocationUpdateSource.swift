@@ -21,11 +21,13 @@ enum LocationErrorPolicy {
 }
 
 /// Location request settings aligned with the Android Fused Location Provider request.
-/// Android requests balanced-power accuracy every 30 s, allows a fastest interval of 15 s,
-/// and asks for updates after 1 km of movement. Core Location has no requested-interval
-/// property, so the 30 s value is documentary; its minimum 15 s cadence is enforced below.
+/// PRIORITY_BALANCED_POWER_ACCURACY targets roughly 100 m (a city block), so the closest
+/// nominal Core Location setting is kCLLocationAccuracyHundredMeters. Android requests
+/// updates every 30 s, allows a fastest interval of 15 s, and asks for updates after 1 km.
+/// Core Location has no requested-interval property, so 30 s is documentary; its minimum
+/// 15 s cadence is enforced below.
 enum LocationRequestConfiguration {
-    static let desiredAccuracy: CLLocationAccuracy = kCLLocationAccuracyKilometer
+    static let desiredAccuracy: CLLocationAccuracy = kCLLocationAccuracyHundredMeters
     static let requestedInterval: TimeInterval = 30
     static let minimumUpdateInterval: TimeInterval = 15
     static let minimumDistance: CLLocationDistance = 1_000
