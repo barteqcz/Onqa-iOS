@@ -49,6 +49,7 @@ final class RadioStore {
                         }
                     } else {
                         locationCoordinate = nil
+                        lastAcceptedHorizontalAccuracy = nil
                         locationName = nil
                         locationCountryCode = nil
                     }
@@ -115,6 +116,13 @@ final class RadioStore {
     var reverseGeocodingRequest: MKReverseGeocodingRequest?
     var nameLookupFailures = 0
     var nextNameLookupDate: Date?
+    /// Set when a fix was accepted while the app was in the background, where
+    /// reverse geocoding is skipped; the name is refreshed on return to the
+    /// foreground.
+    @ObservationIgnored var isLocationNameStale = false
+    /// Horizontal accuracy of the last accepted automatic fix. A later, clearly
+    /// more precise fix is accepted even without 1 km of movement.
+    @ObservationIgnored var lastAcceptedHorizontalAccuracy: CLLocationAccuracy?
     /// One manager, only used to read the current authorization status.
     /// Creating a new CLLocationManager for every status check is wasteful.
     @ObservationIgnored let authorizationProbe = CLLocationManager()

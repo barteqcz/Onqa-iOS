@@ -49,6 +49,56 @@ enum LocationRefreshPolicy {
         )
     }
 }
+enum LocationFixQuality {
+    /// Cell-tower based fixes can be several kilometres off, which is still
+    /// fine for coverage areas tens of kilometres wide; anything coarser is
+    /// treated as noise.
+    static let maxPreciseAccuracy: CLLocationAccuracy = 20_000
+    /// With "Approximate Location" the system itself reports coarse fixes.
+    static let maxReducedAccuracy: CLLocationAccuracy = 50_000
+    /// Core Location may hand out a cached fix first; a stale one must not
+    /// decide the station list.
+    static let maxPreciseAge: TimeInterval = 300
+    /// Fixes at least this precise are never replaced by a "refinement".
+    static let refinementFloor: CLLocationAccuracy = 1_000
+
+    static func isUsable(
+        horizontalAccuracy: CLLocationAccuracy,
+        age: TimeInterval,
+        isReducedAccuracy: Bool
+    ) -> Bool {
+        // A negative accuracy means the coordinate is invalid.
+        guard horizontalAccuracy >= 0 else { return false }
+        if isReducedAccuracy {
+            return horizontalAccuracy <= maxReducedAccuracy
+        }
+        return horizontalAccuracy <= maxPreciseAccuracy && age <= maxPreciseAge
+    }
+
+    /// A first coarse fix must not stick until the listener moves 1 km: a
+    /// later fix that is at least twice as accurate replaces it.
+    static func isRefinement(
+        previousAccuracy: CLLocationAccuracy?,
+        newAccuracy: CLLocationAccuracy
+    ) -> Bool {
+        guard let previousAccuracy, newAccuracy >= 0 else { return false }
+        return previousAccuracy > refinementFloor && newAccuracy <= previousAccuracy / 2
+    }
+}
+
+enum LocationNamePolicy {
+    /// City-name lookups are retried (with backoff) even when the listener has
+    /// not moved, but never in the background where nobody sees the name.
+    static func shouldRetryLookup(
+        hasName: Bool,
+        isResolving: Bool,
+        isRetryAllowed: Bool,
+        appIsActive: Bool
+    ) -> Bool {
+        !hasName && !isResolving && isRetryAllowed && appIsActive
+    }
+}
+
 extension RadioStore {
     var hasLocationAccess: Bool {
         locationAuthorizationStatus == .authorizedWhenInUse
@@ -292,45 +342,111 @@ extension RadioStore {
             refreshLocationAuthorizationStatus(configureTracking: false)
         }
         guard let location = update.location else { return }
+        // A stationary update repeats the position we already have; skip it
+        // unless the city name still needs a retry.
+        if update.isStationary, locationCoordinate != nil, hasResolvedLocationName {
+            return
+        }
         handleLocationFix(location)
+    }
+
+    var isLocationAccuracyReduced: Bool {
+        authorizationProbe.accuracyAuthorization == .reducedAccuracy
+    }
+
+    private var hasResolvedLocationName: Bool {
+        locationName?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .isEmpty == false
     }
 
     func handleLocationFix(_ location: CLLocation) {
         guard settings.locationSource == .gps else { return }
-        let hasLocationName = locationName?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .isEmpty == false
-        let movedEnough = LocationRefreshPolicy.shouldReloadStations(
+        guard LocationFixQuality.isUsable(
+            horizontalAccuracy: location.horizontalAccuracy,
+            age: -location.timestamp.timeIntervalSinceNow,
+            isReducedAccuracy: isLocationAccuracyReduced
+        ) else { return }
+
+        let hasLocationName = hasResolvedLocationName
+        let isRefinement = LocationFixQuality.isRefinement(
+            previousAccuracy: lastAcceptedHorizontalAccuracy,
+            newAccuracy: location.horizontalAccuracy
+        )
+        let movedEnough = isRefinement || LocationRefreshPolicy.shouldReloadStations(
             from: locationCoordinate,
             to: location.coordinate,
             thresholdKm: Self.locationRefreshThresholdKm
         )
-        guard StationProcessor.shouldProcessLocationUpdate(
+        let shouldProcess = isRefinement || StationProcessor.shouldProcessLocationUpdate(
             from: locationCoordinate,
             to: location.coordinate,
             hasLocationName: hasLocationName,
             isResolvingLocationName: isResolvingLocationName,
             thresholdKm: Self.locationRefreshThresholdKm,
             isNameRetryAllowed: isNameLookupRetryAllowed
-        ) else { return }
+        )
+        guard shouldProcess else {
+            // No station or coordinate change, but a failed city lookup must
+            // not stay failed until the next kilometre of movement.
+            if LocationNamePolicy.shouldRetryLookup(
+                hasName: hasLocationName,
+                isResolving: isResolvingLocationName,
+                isRetryAllowed: isNameLookupRetryAllowed,
+                appIsActive: isAppActive
+            ) {
+                refreshLocationName(for: location, saveManualCity: false)
+            }
+            return
+        }
 
         locationPermissionDenied = false
         if movedEnough {
             locationCoordinate = location.coordinate
+            lastAcceptedHorizontalAccuracy = location.horizontalAccuracy
         }
         lastAutomaticCoordinate = locationCoordinate ?? location.coordinate
-        // Keep showing the current city while the next one resolves, so the
-        // header does not flip to a spinner at every 1 km of driving.
-        refreshLocationName(
-            for: location,
-            saveManualCity: false,
-            keepsCurrentName: hasLocationName
-        )
+        if isAppActive {
+            // Keep showing the current city while the next one resolves, so the
+            // header does not flip to a spinner at every 1 km of driving.
+            refreshLocationName(
+                for: location,
+                saveManualCity: false,
+                keepsCurrentName: hasLocationName
+            )
+        } else {
+            // Nobody sees the name in the background; skip the network and
+            // geocoder rate limit, and refresh when the app is visible again.
+            isLocationNameStale = true
+        }
         if movedEnough,
            hasConfirmedOnboardingThisSession,
            settings.locationSource == .gps {
             Task { await loadStations(at: location.coordinate) }
         }
+    }
+
+    /// Refreshes the city name after the app returns to the foreground if it
+    /// was skipped in the background or a previous lookup failed.
+    func refreshLocationNameIfNeeded() {
+        guard settings.locationSource == .gps,
+              hasConfirmedOnboardingThisSession,
+              !isResolvingLocationName,
+              let coordinate = locationCoordinate else { return }
+        let hasName = hasResolvedLocationName
+        let needsLookup = isLocationNameStale
+            || LocationNamePolicy.shouldRetryLookup(
+                hasName: hasName,
+                isResolving: isResolvingLocationName,
+                isRetryAllowed: isNameLookupRetryAllowed,
+                appIsActive: isAppActive
+            )
+        guard needsLookup else { return }
+        refreshLocationName(
+            for: CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude),
+            saveManualCity: false,
+            keepsCurrentName: hasName
+        )
     }
 
     func handleLocationUpdateFailure(_ error: Error) {
@@ -349,6 +465,9 @@ extension RadioStore {
         // background tracking when the app enters or leaves the foreground.
         refreshLocationAuthorizationStatus(configureTracking: false)
         configureLocationUpdates()
+        if isActive {
+            refreshLocationNameIfNeeded()
+        }
     }
 
     /// How long the background session outlives a stop in playback while the
@@ -666,6 +785,7 @@ extension RadioStore {
             locationCountryCode = nil
         }
         isResolvingLocationName = true
+        isLocationNameStale = false
         cancelReverseGeocoding()
 
         reverseGeocodingTask = Task { [weak self] in
