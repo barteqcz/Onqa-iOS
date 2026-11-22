@@ -83,9 +83,9 @@ private struct LocationSample: Sendable {
 /// the thread the manager was created on.
 @MainActor
 final class LocationUpdateSource: NSObject, CLLocationManagerDelegate {
-    /// Station coverage areas are tens of kilometres wide, so a fix good to
-    /// about 1 km is plenty. Anything finer would only cost battery.
-    static let desiredAccuracy = kCLLocationAccuracyKilometer
+    static let desiredAccuracy = LocationRequestConfiguration.desiredAccuracy
+
+    private var lastDeliveredLocationTimestamp: Date?
 
     var onFix: (@MainActor (CLLocation) -> Void)?
     var onAuthorizationChange: (@MainActor (CLAuthorizationStatus) -> Void)?
