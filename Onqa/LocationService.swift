@@ -354,10 +354,7 @@ extension RadioStore {
         let shouldProcess = StationProcessor.shouldProcessLocationUpdate(
             from: locationCoordinate,
             to: location.coordinate,
-            hasLocationName: hasLocationName,
-            isResolvingLocationName: isResolvingLocationName,
-            thresholdKm: Self.locationRefreshThresholdKm,
-            isNameRetryAllowed: isNameLookupRetryAllowed
+            thresholdKm: Self.locationRefreshThresholdKm
         )
         guard shouldProcess else {
             // No station or coordinate change, but a failed city lookup must
@@ -570,10 +567,11 @@ extension RadioStore {
 
     func startLocationUpdates() {
         guard locationUpdateSource == nil else { return }
-        // Station coverage areas are tens of kilometres wide and the app only
-        // reacts to ~1 km of movement, so ask for a coarse fix and let the
-        // system wake the app only after that much movement. The GPS can then
-        // stay off during long drives with the screen off.
+        // Station coverage areas are tens of kilometres wide, and the app only
+        // refreshes station results after roughly 1 km of movement. Request a
+        // coarse fix and use a distance filter to reduce unnecessary wakeups.
+        // Core Location chooses the positioning technologies; this configuration
+        // does not guarantee that GPS stays off during a drive.
         let source = LocationUpdateSource()
         source.onFix = { [weak self] location in
             self?.handleLocationManagerFix(location)
