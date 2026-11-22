@@ -20,6 +20,24 @@ enum LocationErrorPolicy {
     }
 }
 
+/// Location request settings aligned with the Android Fused Location Provider request.
+/// Android requests balanced-power accuracy every 30 s, allows a fastest interval of 15 s,
+/// and asks for updates after 1 km of movement. Core Location has no requested-interval
+/// property, so the 30 s value is documentary; its minimum 15 s cadence is enforced below.
+enum LocationRequestConfiguration {
+    static let desiredAccuracy: CLLocationAccuracy = kCLLocationAccuracyKilometer
+    static let requestedInterval: TimeInterval = 30
+    static let minimumUpdateInterval: TimeInterval = 15
+    static let minimumDistance: CLLocationDistance = 1_000
+}
+
+enum LocationUpdateTimingPolicy {
+    static func shouldDeliver(timestamp: Date, after previousTimestamp: Date?) -> Bool {
+        guard let previousTimestamp else { return true }
+        return timestamp.timeIntervalSince(previousTimestamp) >= LocationRequestConfiguration.minimumUpdateInterval
+    }
+}
+
 /// A fix reduced to plain values, so it can cross from the Core Location
 /// delegate callback to the main actor without sharing a reference type.
 private struct LocationSample: Sendable {
@@ -74,17 +92,12 @@ final class LocationUpdateSource: NSObject, CLLocationManagerDelegate {
     var onFailure: (@MainActor (Error) -> Void)?
 
     private let manager = CLLocationManager()
-    private let distanceFilter: CLLocationDistance
-
-    init(distanceFilter: CLLocationDistance) {
-        self.distanceFilter = distanceFilter
-        super.init()
-    }
 
     func start() {
+        lastDeliveredLocationTimestamp = nil
         manager.delegate = self
-        manager.desiredAccuracy = Self.desiredAccuracy
-        manager.distanceFilter = distanceFilter
+        manager.desiredAccuracy = LocationRequestConfiguration.desiredAccuracy
+        manager.distanceFilter = LocationRequestConfiguration.minimumDistance
         // Playback keeps the app running while updates matter. Automatic
         // pausing can stop delivery at a red light and not resume reliably.
         manager.pausesLocationUpdatesAutomatically = false
@@ -97,6 +110,7 @@ final class LocationUpdateSource: NSObject, CLLocationManagerDelegate {
     func stop() {
         manager.stopUpdatingLocation()
         manager.delegate = nil
+        lastDeliveredLocationTimestamp = nil
         onFix = nil
         onAuthorizationChange = nil
         onFailure = nil
@@ -113,7 +127,13 @@ final class LocationUpdateSource: NSObject, CLLocationManagerDelegate {
         guard let latest = locations.last else { return }
         let sample = LocationSample(latest)
         Task { @MainActor [weak self] in
-            self?.onFix?(sample.location)
+            guard let self,
+                  LocationUpdateTimingPolicy.shouldDeliver(
+                    timestamp: sample.timestamp,
+                    after: self.lastDeliveredLocationTimestamp
+                  ) else { return }
+            self.lastDeliveredLocationTimestamp = sample.timestamp
+            self.onFix?(sample.location)
         }
     }
 
