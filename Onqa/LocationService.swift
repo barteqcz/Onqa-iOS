@@ -346,17 +346,12 @@ extension RadioStore {
         guard LocationFixQuality.isUsable(horizontalAccuracy: location.horizontalAccuracy) else { return }
 
         let hasLocationName = hasResolvedLocationName
-        let movedEnough = LocationRefreshPolicy.shouldReloadStations(
+        let movedEnough = StationProcessor.shouldProcessLocationUpdate(
             from: locationCoordinate,
             to: location.coordinate,
             thresholdKm: Self.locationRefreshThresholdKm
         )
-        let shouldProcess = StationProcessor.shouldProcessLocationUpdate(
-            from: locationCoordinate,
-            to: location.coordinate,
-            thresholdKm: Self.locationRefreshThresholdKm
-        )
-        guard shouldProcess else {
+        guard movedEnough else {
             // No station or coordinate change, but a failed city lookup must
             // not stay failed until the next kilometre of movement.
             if LocationNamePolicy.shouldRetryLookup(

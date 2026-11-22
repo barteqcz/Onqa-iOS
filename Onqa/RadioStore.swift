@@ -10,6 +10,9 @@ final class RadioStore {
     var settings: AppSettings {
         didSet {
             guard settings != oldValue else { return }
+            if oldValue.locationSource != settings.locationSource {
+                pendingStationCoordinate = nil
+            }
             persistSettings()
 
             if oldValue.useHQStream != settings.useHQStream,

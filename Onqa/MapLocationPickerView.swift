@@ -100,6 +100,7 @@ struct MapLocationPickerView: View {
     @State private var position: MapCameraPosition
     @State private var center: CLLocationCoordinate2D
     @State private var searchText = ""
+    @State private var searchSelectionRequestID = 0
     @State private var citySearchPresented = false
     @State private var citySearch = CitySearchModel()
 
@@ -203,6 +204,7 @@ struct MapLocationPickerView: View {
         .toolbar(.visible, for: .navigationBar)
         .navigationBarBackButtonHidden(requiresOnboardingConfirmation)
         .onChange(of: searchText) { _, query in
+            searchSelectionRequestID &+= 1
             citySearch.update(query: query)
         }
         // Keep the navigation header in the hierarchy while the keyboard
@@ -246,8 +248,11 @@ struct MapLocationPickerView: View {
 
     private func select(_ result: CitySearchResult) async {
         guard let completion = result.completion else { return }
+        searchSelectionRequestID &+= 1
+        let requestID = searchSelectionRequestID
         let request = MKLocalSearch.Request(completion: completion)
-        guard let item = try? await MKLocalSearch(request: request).start().mapItems.first else { return }
+        guard let item = try? await MKLocalSearch(request: request).start().mapItems.first,
+              searchSelectionRequestID == requestID else { return }
         // `MKMapItem.placemark` is deprecated in iOS 26; `location` replaces it.
         let coordinate = item.location.coordinate
         center = coordinate

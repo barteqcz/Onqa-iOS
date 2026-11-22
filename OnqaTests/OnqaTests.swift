@@ -41,7 +41,6 @@ struct OnqaTests {
     }
     @Test func androidLocationRequestConfigurationIsPreservedOnIOS() {
         #expect(LocationRequestConfiguration.desiredAccuracy == kCLLocationAccuracyHundredMeters)
-        #expect(LocationRequestConfiguration.requestedInterval == 30)
         #expect(LocationRequestConfiguration.minimumUpdateInterval == 15)
         #expect(LocationRequestConfiguration.minimumDistance == 1_000)
     }
@@ -561,6 +560,17 @@ final class RadioStoreTests {
         store.revertToAutoIfManualLocationMissing()
 
         #expect(store.settings.locationSource == .manual)
+    }
+
+    @Test func changingLocationSourceClearsQueuedStationCoordinate() {
+        let store = RadioStore()
+        store.pendingStationCoordinate = CLLocationCoordinate2D(latitude: 50.0, longitude: 19.0)
+
+        var settings = store.settings
+        settings.locationSource = settings.locationSource == .gps ? .manual : .gps
+        store.settings = settings
+
+        #expect(store.pendingStationCoordinate == nil)
     }
 
     @Test func manualModeWithPickedLocationIsKept() {

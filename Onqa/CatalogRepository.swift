@@ -284,8 +284,9 @@ enum CatalogRepository {
 
     static func validateDatabase(at url: URL) throws {
         var database: OpaquePointer?
-        guard sqlite3_open_v2(url.path, &database, SQLITE_OPEN_READONLY, nil) == SQLITE_OK,
-              let database else {
+        let openResult = sqlite3_open_v2(url.path, &database, SQLITE_OPEN_READONLY, nil)
+        guard openResult == SQLITE_OK, let database else {
+            if let database { sqlite3_close(database) }
             throw CatalogError.invalidDatabase
         }
         defer { sqlite3_close(database) }
@@ -334,8 +335,9 @@ enum CatalogRepository {
 
     static func queryCatalog(path: String, latitude: Double, longitude: Double) throws -> [RadioStation] {
         var database: OpaquePointer?
-        guard sqlite3_open_v2(path, &database, SQLITE_OPEN_READONLY, nil) == SQLITE_OK,
-              let database else {
+        let openResult = sqlite3_open_v2(path, &database, SQLITE_OPEN_READONLY, nil)
+        guard openResult == SQLITE_OK, let database else {
+            if let database { sqlite3_close(database) }
             throw CatalogError.invalidDatabase
         }
         defer { sqlite3_close(database) }

@@ -22,4 +22,4 @@ Apple requires a Developer Account which is 99$/year to be able to put apps on A
 
 ## Why you shouldn't take the .ipa files from *actions*
 
-GitHub Actions builds run the unit test suite, but their IPA artifacts are not end-to-end validated on a physical device. Audio playback, lock-screen controls, background location, transmitter switching while travelling, and UI/accessibility behavior still need device testing. Use the IPA attached to a release for stable distribution.
+The repository includes a manually triggered unit-test workflow, but IPA builds do not run the test suite and are not end-to-end validated on a physical device. Audio playback, lock-screen controls, background location, transmitter switching while travelling, and UI/accessibility behavior still need device testing. Use the IPA attached to a release for stable distribution.
