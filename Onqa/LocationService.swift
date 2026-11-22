@@ -574,9 +574,7 @@ extension RadioStore {
         // reacts to ~1 km of movement, so ask for a coarse fix and let the
         // system wake the app only after that much movement. The GPS can then
         // stay off during long drives with the screen off.
-        let source = LocationUpdateSource(
-            distanceFilter: Self.locationRefreshThresholdKm * 1_000
-        )
+        let source = LocationUpdateSource()
         source.onFix = { [weak self] location in
             self?.handleLocationManagerFix(location)
         }
