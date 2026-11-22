@@ -23,16 +23,13 @@ enum StationProcessor {
         ) >= thresholdKm
     }
 
-    /// Accept the initial fix, then process location changes only after
-    /// the listener has moved by at least the configured distance. City-name
-    /// lookup retries must not bypass this movement threshold.
+    /// Accept the initial fix, then process coordinate changes only after
+    /// the listener has moved by at least the configured distance.
+    /// Reverse-geocoding retries are handled separately from station updates.
     static func shouldProcessLocationUpdate(
         from previousCoordinate: CLLocationCoordinate2D?,
         to coordinate: CLLocationCoordinate2D,
-        hasLocationName: Bool,
-        isResolvingLocationName: Bool,
-        thresholdKm: Double,
-        isNameRetryAllowed: Bool = true
+        thresholdKm: Double
     ) -> Bool {
         guard let previousCoordinate else { return true }
         return hasMoved(atLeast: thresholdKm, from: previousCoordinate, to: coordinate)
