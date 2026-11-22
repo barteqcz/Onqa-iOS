@@ -225,13 +225,6 @@ struct MiniPlayerView: View {
             // do not fall through to the station cards scrolling behind it.
             .contentShape(shape)
             .onTapGesture {}
-            .modifier(
-                MiniPlayerSwipe(
-                    isEnabled: player.hasMultipleStations,
-                    onPrevious: store.playPrevious,
-                    onNext: store.playNext
-                )
-            )
             .id(station.id)
             .transition(
                 .asymmetric(
@@ -240,6 +233,17 @@ struct MiniPlayerView: View {
                 )
             )
             .animation(.spring(response: 0.42, dampingFraction: 0.82), value: station.id)
+            // Applied outside `.id(station.id)` on purpose: the drag offset must
+            // survive the station change, otherwise the freshly inserted bar
+            // starts at 0 and the release looks like a jump instead of a
+            // smooth spring back.
+            .modifier(
+                MiniPlayerSwipe(
+                    isEnabled: player.hasMultipleStations,
+                    onPrevious: store.playPrevious,
+                    onNext: store.playNext
+                )
+            )
         }
     }
 }
