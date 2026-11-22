@@ -366,10 +366,8 @@ extension RadioStore {
         }
 
         locationPermissionDenied = false
-        if movedEnough {
-            locationCoordinate = location.coordinate
-        }
-        lastAutomaticCoordinate = locationCoordinate ?? location.coordinate
+        locationCoordinate = location.coordinate
+        lastAutomaticCoordinate = location.coordinate
         if isAppActive {
             // Keep showing the current city while the next one resolves, so the
             // header does not flip to a spinner at every 1 km of driving.
