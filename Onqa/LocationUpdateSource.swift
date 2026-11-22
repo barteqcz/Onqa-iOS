@@ -21,8 +21,10 @@ enum LocationErrorPolicy {
 }
 
 /// Location request settings aligned with the Android Fused Location Provider request.
-/// PRIORITY_BALANCED_POWER_ACCURACY targets roughly 100 m (a city block), so the closest
-/// nominal Core Location setting is kCLLocationAccuracyHundredMeters. Android requests
+/// PRIORITY_BALANCED_POWER_ACCURACY is documented as roughly 100 m (a city block); in
+/// practice results can be better (for example, around 40–100 m) depending on available
+/// providers and conditions. The closest nominal Core Location setting is
+/// kCLLocationAccuracyHundredMeters. Android requests
 /// updates every 30 s, allows a fastest interval of 15 s, and asks for updates after 1 km.
 /// Core Location has no requested-interval property, so 30 s is documentary; its minimum
 /// 15 s cadence is enforced below.
