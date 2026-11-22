@@ -65,6 +65,66 @@ private struct MiniPlayerMetadataView: View {
     }
 }
 
+// MARK: - Mini player swipe
+
+/// Horizontal swipe on the mini player: left plays the previous station,
+/// right plays the next one. The bar follows the finger with some resistance
+/// and springs back on release.
+private struct MiniPlayerSwipe: ViewModifier {
+    let isEnabled: Bool
+    let onPrevious: () -> Void
+    let onNext: () -> Void
+
+    /// Resets itself if the system cancels the gesture, so the bar can never
+    /// get stuck off-centre.
+    @GestureState private var dragX: CGFloat = 0
+    @State private var hapticTrigger = 0
+
+    private let distanceThreshold: CGFloat = 70
+    private let flickThreshold: CGFloat = 160
+    private let resistance: CGFloat = 0.6
+
+    func body(content: Content) -> some View {
+        content
+            .offset(x: dragX)
+            .animation(.interactiveSpring(response: 0.25, dampingFraction: 0.85), value: dragX)
+            // simultaneous so the play/pause button and the hit-target tap keep working
+            .simultaneousGesture(isEnabled ? swipe : nil)
+            .sensoryFeedback(.impact(flexibility: .soft), trigger: hapticTrigger)
+            .accessibilityAction(named: Text("Previous station")) {
+                if isEnabled { onPrevious() }
+            }
+            .accessibilityAction(named: Text("Next station")) {
+                if isEnabled { onNext() }
+            }
+    }
+
+    private func isHorizontal(_ value: DragGesture.Value) -> Bool {
+        abs(value.translation.width) > abs(value.translation.height)
+    }
+
+    private var swipe: some Gesture {
+        DragGesture(minimumDistance: 20)
+            .updating($dragX) { value, state, _ in
+                guard isHorizontal(value) else { return }
+                state = value.translation.width * resistance
+            }
+            .onEnded { value in
+                guard isHorizontal(value) else { return }
+                let width = value.translation.width
+                let flick = value.predictedEndTranslation.width
+
+                if width < -distanceThreshold || flick < -flickThreshold {
+                    hapticTrigger += 1
+                    onPrevious()
+                } else if width > distanceThreshold || flick > flickThreshold {
+                    hapticTrigger += 1
+                    onNext()
+                }
+            }
+    }
+}
+
 // MARK: - Mini player
 
 struct MiniPlayerView: View {
@@ -165,6 +225,13 @@ struct MiniPlayerView: View {
             // do not fall through to the station cards scrolling behind it.
             .contentShape(shape)
             .onTapGesture {}
+            .modifier(
+                MiniPlayerSwipe(
+                    isEnabled: player.hasMultipleStations,
+                    onPrevious: store.playPrevious,
+                    onNext: store.playNext
+                )
+            )
             .id(station.id)
             .transition(
                 .asymmetric(
