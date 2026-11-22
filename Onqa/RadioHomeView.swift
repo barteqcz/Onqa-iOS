@@ -238,90 +238,90 @@ struct RadioHomeView: View {
             let columns = stationColumns(for: isPhonePortrait ? 0 : gridWidth)
 
             ScrollView {
-            VStack(spacing: 14) {
-                // The offline card already explains the state, so avoid
-                // showing a duplicate banner above it.
-                if !store.isNetworkAvailable && presentedCatalogStatus != .offline {
-                    StatusBanner(
-                        message: String(localized: "No internet connection"),
-                        systemImage: "wifi.slash",
-                        tint: .orange
-                    )
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                }
-
-                if let error = store.errorMessage {
-                    StatusBanner(
-                        message: error,
-                        systemImage: "exclamationmark.triangle",
-                        tint: .orange,
-                        actionTitle: String(localized: "Retry"),
-                        action: { store.refreshStations() }
-                    )
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                }
-
-                stationContent(columns: columns)
-            }
-            .padding(.horizontal, Self.stationContentHorizontalInset)
-
-            // Keep a little breathing room below the final station box.
-            Color.clear
-                .frame(height: 14)
-        }
-        // Keep a small inset so the first station's outline is not clipped.
-        .contentMargins(.top, stationListTopInset, for: .scrollContent)
-        .modifier(TopScrollEdgeEffect(hasLocationHeader: store.settings.showLocationHeader))
-        .background {
-            if store.settings.showLocationHeader {
-                Palette.background
-            } else {
-                // Let the native soft scroll-edge blur show through in no-location mode.
-                Color.clear
-            }
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-                ZStack(alignment: .bottom) {
-                // The fade lives outside the player's slide/opacity
-                // transition: it is always present and only its opacity
-                // changes, with a short animation of its own, so it shows
-                // up together with the player's glass instead of trailing
-                // the transition's slower spring.
-                Color.clear
-                    .frame(height: 0)
-                    .background(alignment: .bottom) {
-                        BottomEdgeFade(
-                            bottomInset: bottomSafeInset,
-                            playerDrop: Self.miniPlayerDrop,
-                            playerHeight: miniPlayerHeight
+                VStack(spacing: 14) {
+                    // The offline card already explains the state, so avoid
+                    // showing a duplicate banner above it.
+                    if !store.isNetworkAvailable && presentedCatalogStatus != .offline {
+                        StatusBanner(
+                            message: String(localized: "No internet connection"),
+                            systemImage: "wifi.slash",
+                            tint: .orange
                         )
-                            .opacity(showsMiniPlayer ? 1 : 0)
-                            .animation(.easeOut(duration: 0.18), value: showsMiniPlayer)
+                        .transition(.move(edge: .top).combined(with: .opacity))
                     }
-                if showsMiniPlayer {
-                    MiniPlayerView(store: store, player: player)
-                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: {
-                            miniPlayerHeight = $0
-                        }
-                        .padding(.horizontal, Self.miniPlayerHorizontalInset)
-                        // Sits slightly below the safe-area edge, nearer
-                        // the home indicator.
-                        .padding(.bottom, -Self.miniPlayerDrop)
-                        .transition(
-                            .asymmetric(
-                                insertion: .offset(x: 0, y: 140).combined(with: .opacity),
-                                removal: .move(edge: .bottom).combined(with: .opacity)
-                            )
+
+                    if let error = store.errorMessage {
+                        StatusBanner(
+                            message: error,
+                            systemImage: "exclamationmark.triangle",
+                            tint: .orange,
+                            actionTitle: String(localized: "Retry"),
+                            action: { store.refreshStations() }
                         )
-                        // Its container ignores the keyboard safe area,
-                        // keeping the player anchored to its normal position.
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+
+                    stationContent(columns: columns)
                 }
+                .padding(.horizontal, Self.stationContentHorizontalInset)
+
+                // Keep a little breathing room below the final station box.
+                Color.clear
+                    .frame(height: 14)
+            }
+            // Keep a small inset so the first station's outline is not clipped.
+            .contentMargins(.top, stationListTopInset, for: .scrollContent)
+            .modifier(TopScrollEdgeEffect(hasLocationHeader: store.settings.showLocationHeader))
+            .background {
+                if store.settings.showLocationHeader {
+                    Palette.background
+                } else {
+                    // Let the native soft scroll-edge blur show through in no-location mode.
+                    Color.clear
                 }
             }
-            .animation(.spring(response: 0.52, dampingFraction: 0.86), value: showsMiniPlayer)
-            .scrollDismissesKeyboard(.interactively)
-            .animation(.snappy(duration: 0.24), value: store.isNetworkAvailable)
-            .animation(.snappy(duration: 0.24), value: store.errorMessage)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                    ZStack(alignment: .bottom) {
+                    // The fade lives outside the player's slide/opacity
+                    // transition: it is always present and only its opacity
+                    // changes, with a short animation of its own, so it shows
+                    // up together with the player's glass instead of trailing
+                    // the transition's slower spring.
+                    Color.clear
+                        .frame(height: 0)
+                        .background(alignment: .bottom) {
+                            BottomEdgeFade(
+                                bottomInset: bottomSafeInset,
+                                playerDrop: Self.miniPlayerDrop,
+                                playerHeight: miniPlayerHeight
+                            )
+                                .opacity(showsMiniPlayer ? 1 : 0)
+                                .animation(.easeOut(duration: 0.18), value: showsMiniPlayer)
+                        }
+                    if showsMiniPlayer {
+                        MiniPlayerView(store: store, player: player)
+                            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: {
+                                miniPlayerHeight = $0
+                            }
+                            .padding(.horizontal, Self.miniPlayerHorizontalInset)
+                            // Sits slightly below the safe-area edge, nearer
+                            // the home indicator.
+                            .padding(.bottom, -Self.miniPlayerDrop)
+                            .transition(
+                                .asymmetric(
+                                    insertion: .offset(x: 0, y: 140).combined(with: .opacity),
+                                    removal: .move(edge: .bottom).combined(with: .opacity)
+                                )
+                            )
+                            // Its container ignores the keyboard safe area,
+                            // keeping the player anchored to its normal position.
+                    }
+                    }
+                }
+                .animation(.spring(response: 0.52, dampingFraction: 0.86), value: showsMiniPlayer)
+                .scrollDismissesKeyboard(.interactively)
+                .animation(.snappy(duration: 0.24), value: store.isNetworkAvailable)
+                .animation(.snappy(duration: 0.24), value: store.errorMessage)
         }
     }
 
