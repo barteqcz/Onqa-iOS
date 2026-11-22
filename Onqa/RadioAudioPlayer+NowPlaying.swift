@@ -15,7 +15,13 @@ extension RadioAudioPlayer {
     }
 
     func configureRemoteCommands() {
-        guard let center = nowPlayingSession?.remoteCommandCenter else { return }
+        let center = MPRemoteCommandCenter.shared()
+        // Re-run after a media-services reset: drop old targets so commands
+        // are not handled twice.
+        for command in [center.playCommand, center.pauseCommand, center.togglePlayPauseCommand,
+                        center.nextTrackCommand, center.previousTrackCommand] {
+            command.removeTarget(nil)
+        }
         Self.addRemoteCommand(center.playCommand) { [weak self] in
             Task { @MainActor in self?.resume() }
         }
@@ -70,17 +76,11 @@ extension RadioAudioPlayer {
         MPMediaItemArtwork(boundsSize: image.size) { @Sendable _ in image }
     }
 
-    /// Asks the system to route Now Playing info and remote commands to this
-    /// app's session (Apple's documented way to promote a session).
-    func becomeActiveNowPlayingSession() {
-        nowPlayingSession?.becomeActiveIfPossible(completion: nil)
-    }
-
     /// Offers the system only the commands that can act right now, instead of
     /// accepting every command and ignoring it: nothing without a station, and
     /// next/previous only when there is another station to go to.
     func updateRemoteCommandAvailability() {
-        guard let center = nowPlayingSession?.remoteCommandCenter else { return }
+        let center = MPRemoteCommandCenter.shared()
         let hasStation = currentStation != nil
         let canSkip = hasStation && hasMultipleStations
         center.playCommand.isEnabled = hasStation
@@ -93,7 +93,7 @@ extension RadioAudioPlayer {
     func updateNowPlaying() {
         updateRemoteCommandAvailability()
         guard let station = currentStation else {
-            nowPlayingSession?.nowPlayingInfoCenter.nowPlayingInfo = nil
+            MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
             return
         }
         let trimmedMetadata = metadata?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -113,6 +113,6 @@ extension RadioAudioPlayer {
         if let stationArtwork {
             info[MPMediaItemPropertyArtwork] = stationArtwork
         }
-        nowPlayingSession?.nowPlayingInfoCenter.nowPlayingInfo = info
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = info
     }
 }

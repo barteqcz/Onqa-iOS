@@ -28,9 +28,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     // A var, because after a media-services reset the old AVPlayer is no
     // longer usable and is replaced (see handleMediaServicesReset).
     @ObservationIgnored private var player = AVPlayer()
-    // Explicitly associate this AVPlayer with the system's Now Playing session.
-    // A single session is the app's default Now Playing session.
-    @ObservationIgnored var nowPlayingSession: MPNowPlayingSession?
     private var volumeFadeTask: Task<Void, Never>?
     private var reconnectTask: Task<Void, Never>?
     private var stalledPlaybackTask: Task<Void, Never>?
@@ -130,12 +127,10 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     private func configurePlayer() {
         player.automaticallyWaitsToMinimizeStalling = true
 
-        // Apple recommends MPNowPlayingSession for AVFoundation playback.
-        // Keep metadata manual because this app publishes live station/ICY
-        // metadata itself rather than relying on AVPlayerItem metadata.
-        let session = MPNowPlayingSession(players: [player])
-        session.automaticallyPublishesNowPlayingInfo = false
-        nowPlayingSession = session
+        // Single-player app: publish through the app-wide Now Playing info
+        // center and remote command center. (MPNowPlayingSession's
+        // becomeActiveIfPossible fails silently, which left the Lock Screen
+        // and Dynamic Island without media controls.)
 
         timeControlObservation = Self.observeTimeControlStatus(of: player) { [weak self] in
             Task { @MainActor in
@@ -655,7 +650,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
 
         player.replaceCurrentItem(with: item)
         player.play()
-        becomeActiveNowPlayingSession()
         updateNowPlaying()
     }
 
@@ -788,7 +782,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         isBuffering = false
         playbackError = false
         deactivateAudioSession()
-        nowPlayingSession?.nowPlayingInfoCenter.nowPlayingInfo = nil
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
         updateRemoteCommandAvailability()
     }
 
