@@ -252,7 +252,8 @@ struct MapLocationPickerView: View {
         let requestID = searchSelectionRequestID
         let request = MKLocalSearch.Request(completion: completion)
         guard let item = try? await MKLocalSearch(request: request).start().mapItems.first,
-              searchSelectionRequestID == requestID else { return }
+              searchSelectionRequestID == requestID,
+              citySearchPresented else { return }
         // `MKMapItem.placemark` is deprecated in iOS 26; `location` replaces it.
         let coordinate = item.location.coordinate
         center = coordinate
