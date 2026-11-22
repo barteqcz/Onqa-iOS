@@ -20,34 +20,6 @@ struct HQBadge: View {
     }
 }
 
-/// Animated "now playing" waveform.
-///
-/// Drawn entirely by SwiftUI (a variable-value symbol driven by a timeline)
-/// instead of `symbolEffect`. An endlessly running symbol effect is rendered
-/// outside SwiftUI's normal drawing, and a card containing one did not animate
-/// its move when it was re-sorted (e.g. after favoriting the playing station):
-/// it stayed at its old slot and then popped into the new one.
-private struct PlayingWaveform: View {
-    let color: Color
-
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    private let period: TimeInterval = 1.4
-
-    var body: some View {
-        TimelineView(.animation(paused: reduceMotion)) { context in
-            let time = context.date.timeIntervalSinceReferenceDate
-            let phase = time.truncatingRemainder(dividingBy: period) / period
-            // Up and back down, like the previous iterative/reversing effect.
-            let level = reduceMotion ? 1 : (phase < 0.5 ? phase * 2 : (1 - phase) * 2)
-            Image(systemName: "waveform", variableValue: level)
-                .font(.system(size: 21, weight: .semibold))
-                .foregroundStyle(color)
-        }
-        .accessibilityHidden(true)
-    }
-}
-
 /// A standalone station box. The button, context menu and accessibility
 /// actions are native SwiftUI controls; only the box's visual surface is custom.
 struct StationCardView: View {
@@ -148,7 +120,10 @@ struct StationCardView: View {
             Spacer(minLength: 0)
 
             if isActive && isPlaying {
-                PlayingWaveform(color: stationAccent)
+                Image(systemName: "waveform")
+                    .font(.system(size: 21, weight: .semibold))
+                    .foregroundStyle(stationAccent)
+                    .symbolEffect(.variableColor.iterative.reversing, isActive: true)
                     .transition(.scale(scale: 0.78).combined(with: .opacity))
             }
         }
