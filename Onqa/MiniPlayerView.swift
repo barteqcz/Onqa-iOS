@@ -90,8 +90,8 @@ private struct MiniPlayerSwipe: ViewModifier {
     private let distanceThreshold: CGFloat = 70
     private let flickThreshold: CGFloat = 160
     private let resistance: CGFloat = 0.6
-    private let slideOut: Duration = .milliseconds(150)
-    private let slideIn: Duration = .milliseconds(420)
+    private let slideOut: Duration = .milliseconds(90)
+    private let slideIn: Duration = .milliseconds(260)
 
     func body(content: Content) -> some View {
         content
@@ -140,15 +140,18 @@ private struct MiniPlayerSwipe: ViewModifier {
     }
 
     private func springBack() {
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { offsetX = 0 }
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) { offsetX = 0 }
     }
 
     private func commit(direction: CGFloat, action: @escaping () -> Void) {
         isSettling = true
         hapticTrigger += 1
+        // The slide runs opposite to the swipe: the old bar leaves the way
+        // the new one is "coming from" in the station list.
+        let direction = -direction
 
         // 1. Slide the current bar out in the swipe direction.
-        withAnimation(.easeIn(duration: 0.15)) {
+        withAnimation(.easeIn(duration: 0.09)) {
             offsetX = direction * width
             opacity = 0
         }
@@ -167,7 +170,7 @@ private struct MiniPlayerSwipe: ViewModifier {
             }
 
             // 3. Slide the new bar in.
-            withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+            withAnimation(.spring(response: 0.26, dampingFraction: 0.85)) {
                 offsetX = 0
                 opacity = 1
             }
