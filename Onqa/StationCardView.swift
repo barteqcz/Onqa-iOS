@@ -20,6 +20,39 @@ struct HQBadge: View {
     }
 }
 
+/// Equalizer-style "now playing" indicator: each bar moves on its own rhythm.
+/// Heights are a pure function of time, so there is no animation state to manage.
+private struct PlayingBarsView: View {
+    let color: Color
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private static let speeds: [Double] = [5.1, 7.3, 4.2, 6.4]
+    private static let phases: [Double] = [0.0, 1.9, 3.7, 5.2]
+    private static let maxHeight: CGFloat = 22
+
+    var body: some View {
+        TimelineView(.animation(paused: reduceMotion)) { context in
+            let t = context.date.timeIntervalSinceReferenceDate
+            HStack(spacing: 3) {
+                ForEach(Self.speeds.indices, id: \.self) { index in
+                    Capsule()
+                        .fill(color)
+                        .frame(width: 3.5, height: barHeight(index, at: t))
+                }
+            }
+            .frame(height: Self.maxHeight)
+        }
+    }
+
+    private func barHeight(_ index: Int, at t: TimeInterval) -> CGFloat {
+        let angle = t * Self.speeds[index] + Self.phases[index]
+        // Two sines at unrelated rates keep the motion from looking periodic.
+        let level = (sin(angle) + sin(angle * 0.61 + 1.3)) / 4 + 0.5 // 0...1
+        return Self.maxHeight * (0.25 + 0.75 * level)
+    }
+}
+
 /// A standalone station box. The button, context menu and accessibility
 /// actions are native SwiftUI controls; only the box's visual surface is custom.
 struct StationCardView: View {
@@ -120,10 +153,14 @@ struct StationCardView: View {
             Spacer(minLength: 0)
 
             if isActive && isPlaying {
-                Image(systemName: "waveform")
-                    .font(.system(size: 21, weight: .semibold))
+                PlayingBarsView(color: stationAccent)
+                    .accessibilityHidden(true)
+                    .transition(.scale(scale: 0.78).combined(with: .opacity))
+            } else if station.isFavorite {
+                Image(systemName: "heart.fill")
+                    .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(stationAccent)
-                    .symbolEffect(.variableColor.iterative.reversing, isActive: true)
+                    .accessibilityHidden(true)
                     .transition(.scale(scale: 0.78).combined(with: .opacity))
             }
         }
