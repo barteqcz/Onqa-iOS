@@ -141,8 +141,8 @@ struct StationCardView: View {
         }
         .overlay {
             shape.stroke(
-                station.isFavorite || isActive ? stationAccent.opacity(0.65) : Palette.outline,
-                lineWidth: station.isFavorite || isActive ? 1.5 : 1
+                isActive ? stationAccent.opacity(0.65) : Palette.outline,
+                lineWidth: isActive ? 1.5 : 1
             )
         }
         .contentShape(shape)
