@@ -67,6 +67,25 @@ struct ReliabilityTests {
         ))
     }
 
+    @Test func cachedCityRefreshesAfterTheDisplayedAgeThreshold() {
+        let now = Date()
+        #expect(LocationNamePolicy.hasFreshGeocode(
+            hasName: true,
+            retrievedAt: now.addingTimeInterval(-59),
+            now: now
+        ))
+        #expect(!LocationNamePolicy.hasFreshGeocode(
+            hasName: true,
+            retrievedAt: now.addingTimeInterval(-60),
+            now: now
+        ))
+        #expect(!LocationNamePolicy.hasFreshGeocode(
+            hasName: true,
+            retrievedAt: nil,
+            now: now
+        ))
+    }
+
     // MARK: Fix quality
 
     @Test func onlyInvalidFixesAreRejected() {
