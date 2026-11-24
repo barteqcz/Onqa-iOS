@@ -3,18 +3,18 @@ import MapKit
 import UIKit
 import Observation
 
-// MARK: - Home
+ 
 
-/// Fade that lifts the mini player off the station list. It is drawn as a
-/// layer *behind* the player (as the player's background), so the player's
-/// glass simply sits on top of it. Nothing is cut out around the player, so
-/// the glass can grow, press and animate freely as a single element.
+ 
+ 
+ 
+ 
 private struct BottomEdgeFade: View {
-    /// Bottom safe-area height, supplied by the screen's own layout.
+     
     let bottomInset: CGFloat
-    /// How far the mini player is pushed below the safe-area edge.
+     
     let playerDrop: CGFloat
-    /// Measured height of the mini player; the fade starts at its top edge.
+     
     let playerHeight: CGFloat
 
     var body: some View {
@@ -31,7 +31,7 @@ private struct BottomEdgeFade: View {
             startPoint: .bottom,
             endPoint: .top
         )
-        // Spans from the player's top edge down to the physical screen bottom.
+         
         .frame(height: playerHeight + belowSafeArea)
         .offset(y: belowSafeArea)
         .allowsHitTesting(false)
@@ -50,18 +50,18 @@ private struct HomeToolbarBackground: ViewModifier {
                 .toolbarBackgroundVisibility(.visible, for: .navigationBar)
                 .toolbarColorScheme(colorScheme, for: .navigationBar)
         } else {
-            // Remove the navigation bar's default opaque background. The
-            // ScrollView's soft top-edge effect remains visible underneath.
+             
+             
             content
                 .toolbarBackgroundVisibility(.hidden, for: .navigationBar)
         }
     }
 }
 
-/// Scroll-edge effect for the top of the station list.
-/// With the location header, the solid header gets a hard edge. Without it,
-/// the system's native soft edge effect is used: the standard iOS blur behind
-/// the status bar, with no opaque backdrop of our own.
+ 
+ 
+ 
+ 
 private struct TopScrollEdgeEffect: ViewModifier {
     let hasLocationHeader: Bool
 
@@ -79,20 +79,20 @@ struct RadioHomeView: View {
     @Bindable var store: RadioStore
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.colorScheme) private var colorScheme
-    // The environment locale follows the system's Measurement System, so cards
-    // update if it is changed in Settings while the app is running.
+     
+     
     @Environment(\.locale) private var locale
-    /// Search is a row pinned to the top of the screen, just under the native
-    /// navigation bar. It is shown only while searching and holds the field
-    /// and a Cancel button in one glass container.
+     
+     
+     
     @State private var searchIsActive = false
     @FocusState private var searchFocused: Bool
     @Namespace private var searchGlassNamespace
     @State private var showingSettings = false
-    /// The catalog card currently on screen. It trails the store's status so a
-    /// fast download never flashes it (see `syncCatalogStatus`).
+     
+     
     @State private var presentedCatalogStatus: CatalogStatus?
-    // Header metrics follow the user's Dynamic Type setting.
+     
     @ScaledMetric(relativeTo: .title) private var headerFlagSize: CGFloat = 32
     @ScaledMetric(relativeTo: .title) private var headerTitleSize: CGFloat = 26
     @ScaledMetric(relativeTo: .title) private var headerRowHeight: CGFloat = 38
@@ -100,10 +100,10 @@ struct RadioHomeView: View {
     @State private var miniPlayerHeight: CGFloat = 88
     @State private var shouldFollowBottomWhenMiniPlayerAppears = false
 
-    /// How far the mini player sits below the bottom safe-area edge. Shared by
-    /// the player's padding and the fade behind it so they cannot drift apart.
+     
+     
     private static let miniPlayerDrop: CGFloat = 10
-    // Station cards use a 16-point inset. The mini-player is deliberately wider.
+     
     private static let miniPlayerHorizontalInset: CGFloat = 16
 
     private var player: RadioAudioPlayer { store.player }
@@ -122,30 +122,30 @@ struct RadioHomeView: View {
         DistanceUnit(measurementSystem: locale.measurementSystem)
     }
 
-    /// Shared 14-point spacing between station cards and the bottom of every header.
+     
     private static let stationSpacing: CGFloat = 14
     private static let stationListBottomID = "station-list-bottom"
     private static let scrollBottomFollowTolerance: CGFloat = 48
 
-    /// Small scroll-content inset keeps the first station's outline fully visible.
+     
     private static let stationListTopMargin: CGFloat = 5
 
-    /// Height of the native Liquid Glass toolbar buttons (search, settings).
-    /// The search field and its close button use the same height.
+     
+     
     private static let toolbarControlHeight: CGFloat = 44
 
     private static let searchAnimation: Animation = .smooth(duration: 0.32)
 
-    /// How long the context menu takes to dismiss. The favorite re-sort waits
-    /// this long so the pressed card is free to slide (see `onFavorite`).
+     
+     
     private static let favoriteMenuDismissDelay: Duration = .milliseconds(650)
 
     private static let stationMinimumWidth: CGFloat = 320
     private static let stationContentHorizontalInset: CGFloat = 16
 
-    /// Calculate columns from the station list's current container width.
-    /// Compact-width phones in portrait are always kept to a single column;
-    /// other layouts use the available width to decide whether two fit.
+     
+     
+     
     private func stationColumns(for availableWidth: CGFloat) -> [GridItem] {
         let spacing = Self.stationSpacing
         let count = max(
@@ -158,8 +158,8 @@ struct RadioHomeView: View {
         )
     }
 
-    /// Keep the 14pt toolbar gap and 5pt first-card inset consistent in both
-    /// search states when the location label is hidden.
+     
+     
     private var stationListTopInset: CGFloat {
         Self.stationListTopMargin
             + (!store.settings.showLocationHeader ? Self.stationSpacing : 0)
@@ -173,9 +173,9 @@ struct RadioHomeView: View {
                     stationList
                 }
             } else {
-                // Keep the ScrollView as the root in no-location mode. This
-                // lets its content pass beneath the transparent navigation bar
-                // and keeps the top inset inside the clear, scrolling surface.
+                 
+                 
+                 
                 stationList
             }
         }
@@ -185,26 +185,26 @@ struct RadioHomeView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
-        // Measured inside the keyboard-ignoring modifier below, so the keyboard
-        // never inflates the inset.
+         
+         
         .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.bottom } action: {
             bottomSafeInset = $0
         }
-        // Ignore keyboard-driven safe-area changes at the home layout level,
-        // so the mini-player stays at the bottom edge when search opens the keyboard.
+         
+         
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .background {
             if store.settings.showLocationHeader {
                 Palette.background.ignoresSafeArea()
             } else {
-                // In no-location mode, leave the area behind the native
-                // navigation-bar blur transparent in both search states.
+                 
+                 
                 Color.clear.ignoresSafeArea()
             }
         }
         .animation(.easeInOut(duration: 0.3), value: showsMiniPlayer)
-        // Keep a stable navigation title for the native back-button menu.
-        // The invisible title toolbar item below keeps it off the home screen.
+         
+         
         .navigationTitle("Station List")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
@@ -223,8 +223,8 @@ struct RadioHomeView: View {
             SettingsView(store: store)
         }
         .onChange(of: showingSettings) { _, isShowing in
-            // Leaving Settings in Manual mode with no location picked would
-            // leave the app without a position, so fall back to Auto.
+             
+             
             if !isShowing {
                 store.revertToAutoIfManualLocationMissing()
             }
@@ -234,8 +234,8 @@ struct RadioHomeView: View {
         }
     }
 
-    /// The station list owns the top edge in no-location mode so its
-    /// transparent top inset scrolls underneath the native navigation bar.
+     
+     
     private var stationList: some View {
         GeometryReader { geometry in
             let gridWidth = max(0, geometry.size.width - Self.stationContentHorizontalInset * 2)
@@ -244,8 +244,8 @@ struct RadioHomeView: View {
             ScrollViewReader { scrollProxy in
                 ScrollView {
                     VStack(spacing: Self.stationSpacing) {
-                        // The offline card already explains the state, so avoid
-                        // showing a duplicate banner above it.
+                         
+                         
                         if !store.isNetworkAvailable && presentedCatalogStatus != .offline {
                             StatusBanner(
                                 message: String(localized: "No internet connection"),
@@ -268,31 +268,31 @@ struct RadioHomeView: View {
 
                         stationContent(columns: columns)
                     }
-                    // Keep the original 16-point side inset; the player has
-                    // its own independent horizontal inset.
+                     
+                     
                     .padding(.horizontal, Self.stationContentHorizontalInset)
-                    // Use the actual content stack as the scroll target. It
-                    // has a real frame, unlike a zero-height sentinel.
+                     
+                     
                     .id(Self.stationListBottomID)
                 }
-                // Keep a small inset so the first station's outline is not clipped.
+                 
                 .contentMargins(.top, stationListTopInset, for: .scrollContent)
                 .modifier(TopScrollEdgeEffect(hasLocationHeader: store.settings.showLocationHeader))
                 .background {
                     if store.settings.showLocationHeader {
                         Palette.background
                     } else {
-                        // Let the native soft scroll-edge blur show through in no-location mode.
+                         
                         Color.clear
                     }
                 }
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     ZStack(alignment: .bottom) {
-                        // The fade lives outside the player's slide/opacity
-                        // transition: it is always present and only its opacity
-                        // changes, with a short animation of its own, so it shows
-                        // up together with the player's glass instead of trailing
-                        // the transition's slower spring.
+                         
+                         
+                         
+                         
+                         
                         Color.clear
                             .frame(height: 0)
                             .background(alignment: .bottom) {
@@ -307,7 +307,7 @@ struct RadioHomeView: View {
 
                         if showsMiniPlayer {
                             VStack(spacing: 0) {
-                                // Match the space between station cards exactly.
+                                 
                                 Color.clear
                                     .frame(height: Self.stationSpacing)
 
@@ -316,14 +316,14 @@ struct RadioHomeView: View {
                                         miniPlayerHeight = $0
                                     }
                                     .padding(.horizontal, Self.miniPlayerHorizontalInset)
-                                    // Sits slightly below the safe-area edge, nearer
-                                    // the home indicator.
+                                     
+                                     
                                     .padding(.bottom, -Self.miniPlayerDrop)
-                                    // Its container ignores the keyboard safe area,
-                                    // keeping the player anchored to its normal position.
+                                     
+                                     
                             }
-                            // The conditional inserts/removes this whole stack,
-                            // so the transition belongs here (not on its child).
+                             
+                             
                             .transition(
                                 .asymmetric(
                                     insertion: .offset(x: 0, y: 140).combined(with: .opacity),
@@ -341,15 +341,15 @@ struct RadioHomeView: View {
                     max(0, geometry.contentSize.height - geometry.visibleRect.maxY)
                         <= Self.scrollBottomFollowTolerance
                 } action: { _, isAtBottom in
-                    // Preserve the pre-player state. The safe-area inset changes
-                    // the viewport immediately after playback begins.
+                     
+                     
                     if !showsMiniPlayer {
                         shouldFollowBottomWhenMiniPlayerAppears = isAtBottom
                     }
                 }
                 .onChange(of: showsMiniPlayer) { wasShowing, isShowing in
-                    // Remember whether the user was at the bottom before the
-                    // mini-player changes the scroll view's bottom safe area.
+                     
+                     
                     guard
                         !wasShowing,
                         isShowing,
@@ -358,8 +358,8 @@ struct RadioHomeView: View {
 
                     shouldFollowBottomWhenMiniPlayerAppears = false
                     Task { @MainActor in
-                        // Wait for the safe-area inset to be laid out before
-                        // aligning the content stack with the newly reduced viewport.
+                         
+                         
                         try? await Task.sleep(for: .milliseconds(140))
                         guard showsMiniPlayer else { return }
                         withAnimation(.spring(response: 0.52, dampingFraction: 0.86)) {
@@ -371,9 +371,9 @@ struct RadioHomeView: View {
         }
     }
 
-    /// Shows or hides the catalog card to match the store. A download only
-    /// gets the card if it is still running after a short moment, so on a fast
-    /// connection the list simply appears without a flash of the card.
+     
+     
+     
     @MainActor
     private func syncCatalogStatus() async {
         guard let status = store.catalogStatus else {
@@ -387,7 +387,7 @@ struct RadioHomeView: View {
         withAnimation(.easeOut(duration: 0.2)) { presentedCatalogStatus = status }
     }
 
-    /// Shows the location label when location display is enabled.
+     
     private var headerSection: some View {
         VStack(spacing: 0) {
             if showsLocationHeader {
@@ -395,8 +395,8 @@ struct RadioHomeView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
-        // Native toolbar states (including the location-mode search field) and
-        // the city label share one bottom gap. Floating search adds its own.
+         
+         
         .padding(.bottom, Self.stationSpacing)
         .background {
             if store.settings.showLocationHeader {
@@ -405,8 +405,8 @@ struct RadioHomeView: View {
         }
     }
 
-    // Native toolbar Button at the original top-left position. It swaps the
-    // location header for the search field at the top.
+     
+     
     private var searchToolbarButton: some View {
         Button {
             openSearch()
@@ -419,15 +419,15 @@ struct RadioHomeView: View {
     }
 
     private func openSearch() {
-        // Ignore repeated taps during activation. The toolbar stays mounted,
-        // so reopening the same state must not restart its animation.
+         
+         
         guard !searchIsActive else { return }
 
         withAnimation(Self.searchAnimation) {
             searchIsActive = true
         }
-        // Focus immediately; the toolbar hierarchy and Close hit target do
-        // not change when the keyboard is presented.
+         
+         
         searchFocused = true
     }
 
@@ -468,9 +468,9 @@ struct RadioHomeView: View {
         .glassEffectID("station-search-field", in: searchGlassNamespace)
     }
 
-    /// Field and Cancel share one glass container, so their surfaces blend
-    /// when pressed or dragged close together. The field takes all the width
-    /// left of Cancel.
+     
+     
+     
     private var searchRow: some View {
         GlassEffectContainer(spacing: 12) {
             HStack(spacing: 12) {
@@ -495,8 +495,8 @@ struct RadioHomeView: View {
                 .foregroundStyle(colorScheme == .light ? Color.black : Color.white)
                 .frame(width: Self.toolbarControlHeight, height: Self.toolbarControlHeight)
         }
-        // Keep a full, stable 44pt hit target on the button itself rather
-        // than relying on the changing outline of its animated glass surface.
+         
+         
         .frame(width: Self.toolbarControlHeight, height: Self.toolbarControlHeight)
         .contentShape(Rectangle())
         .buttonStyle(.plain)
@@ -539,18 +539,18 @@ struct RadioHomeView: View {
                     .frame(height: headerRowHeight, alignment: .center)
             }
             if store.isLocationPending {
-                // Native spinner while the location or city name is still
-                // being retrieved; "Unknown location" appears only if the
-                // lookup finished without a result.
+                 
+                 
+                 
                 ProgressView()
                     .progressViewStyle(.circular)
                     .tint(accent)
                     .frame(height: headerRowHeight)
             } else {
-                // The store is read here, in the header's own body, so changes
-                // to it refresh the header at once. Only the age depends on
-                // the clock: it re-evaluates every 30 seconds, so the counter
-                // keeps running while the last known location stays on screen.
+                 
+                 
+                 
+                 
                 let label = store.locationLabel
                 let retrievedAt = store.displayedLocationRetrievedAt
                 TimelineView(.periodic(from: .now, by: 30)) { context in
@@ -562,7 +562,7 @@ struct RadioHomeView: View {
                             .minimumScaleFactor(0.65)
                         let age = LocationAgePolicy.text(since: retrievedAt, now: context.date)
                         if let age {
-                            // Fixed size, so a long city name shrinks first.
+                             
                             Text(age)
                                 .font(.system(size: 13, weight: .medium))
                                 .foregroundStyle(.secondary)
@@ -587,14 +587,14 @@ struct RadioHomeView: View {
     private func stationContent(columns: [GridItem]) -> some View {
         let visibleStations = store.displayedStations
         if let status = presentedCatalogStatus {
-            // Takes the place of the loading spinner and the "No stations
-            // found" card while the catalog is downloaded (or cannot be).
+             
+             
             CatalogStatusView(status: status, onRetry: { store.refreshStations() })
                 .transition(.opacity.combined(with: .scale(scale: 0.98)))
         } else if store.settings.locationSource == .gps && store.locationCoordinate == nil {
-            // The catalog is already cached on later launches, so there is no
-            // download card to show. Keep the content area useful while GPS
-            // resolves instead of leaving a black, empty screen.
+             
+             
+             
             LocationLoadingView()
                 .transition(.opacity.combined(with: .scale(scale: 0.98)))
         } else if store.isLoading && store.stations.isEmpty {
@@ -616,11 +616,11 @@ struct RadioHomeView: View {
                         accent: accent,
                         onPlay: { store.play(station) },
                         onFavorite: {
-                            // The context menu keeps the pressed card pinned
-                            // at its old slot until its dismiss animation
-                            // ends. Re-sorting during that window made the
-                            // card jump instead of slide, so wait for the
-                            // menu to finish first.
+                             
+                             
+                             
+                             
+                             
                             Task { @MainActor in
                                 try? await Task.sleep(for: Self.favoriteMenuDismissDelay)
                                 withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) {
