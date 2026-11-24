@@ -1,7 +1,4 @@
 import SwiftUI
-import MapKit
-import UIKit
-import Observation
 
 struct HQBadge: View {
     let color: Color

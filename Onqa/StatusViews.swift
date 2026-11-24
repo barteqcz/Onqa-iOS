@@ -1,7 +1,4 @@
 import SwiftUI
-import MapKit
-import UIKit
-import Observation
 
 struct CatalogStatusView: View {
     let status: CatalogStatus

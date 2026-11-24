@@ -3,7 +3,6 @@ import AVFoundation
 import MediaPlayer
 import Observation
 import os
-import UIKit
 
 /// Main-actor owner of AVPlayer, audio-session lifecycle, stream metadata, and automatic recovery.
 /// `playbackRequestID` invalidates callbacks and tasks that belong to an older station request.

@@ -1,6 +1,4 @@
 import SwiftUI
-import MapKit
-import UIKit
 import Observation
 
 private struct BottomEdgeFade: View {

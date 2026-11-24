@@ -1,7 +1,4 @@
 import SwiftUI
-import MapKit
-import UIKit
-import Observation
 
 // A measured, looping ticker keeps long live-track titles readable without changing the mini-player layout.
 private struct MiniPlayerMetadataView: View {

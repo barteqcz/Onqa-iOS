@@ -1,7 +1,5 @@
 import SwiftUI
-import MapKit
 import UIKit
-import Observation
 
 extension OnqaAccent {
 

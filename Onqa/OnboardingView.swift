@@ -1,7 +1,5 @@
 import SwiftUI
-import MapKit
 import UIKit
-import Observation
 
 /// Guides first launch through location permission, with a manual-location path when GPS access is unavailable.
 struct OnboardingView: View {

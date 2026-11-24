@@ -1,6 +1,5 @@
 import SwiftUI
 import MapKit
-import UIKit
 import Observation
 
 struct CitySearchResult: Identifiable {
