@@ -103,8 +103,7 @@ struct AppSettings: Codable, Equatable {
     var manualLatitude: Double?
     var manualLongitude: Double?
     var manualCity: String?
-    /// When the saved manual city was last successfully reverse geocoded.
-    /// Optional so settings from older versions continue to decode.
+    /// Timestamp of the last successful reverse geocode for the cached manual city.
     var manualLocationRetrievedAt: Date?
     var catalogUpdateFrequency: CatalogUpdateFrequency = .weekly
     var lastCatalogUpdate: Date?
