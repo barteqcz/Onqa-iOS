@@ -73,8 +73,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     private var useHQForCurrentStation = true
     private var mediaServicesResetObserver: NSObjectProtocol?
 
-    private let pausedSessionGracePeriod: Duration = .seconds(120)
-    private var audioSessionDeactivationTask: Task<Void, Never>?
 
     var hasMultipleStations = false
 
@@ -143,8 +141,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         stalledPlaybackTask = nil
         volumeFadeTask?.cancel()
         volumeFadeTask = nil
-        audioSessionDeactivationTask?.cancel()
-        audioSessionDeactivationTask = nil
         itemStatusObservation = nil
         timeControlObservation = nil
         removeItemNotificationObservers()
@@ -462,8 +458,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     }
 
     private func activateAudioSession() -> Bool {
-        audioSessionDeactivationTask?.cancel()
-        audioSessionDeactivationTask = nil
         let session = AVAudioSession.sharedInstance()
         do {
             try session.setCategory(.playback, mode: .default, options: [])
@@ -477,24 +471,12 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     }
 
     private func scheduleAudioSessionDeactivation() {
-        audioSessionDeactivationTask?.cancel()
-        guard audioSessionIsActive else { return }
-        audioSessionDeactivationTask = Task { [weak self] in
-            guard let self else { return }
-            do {
-                try await Task.sleep(for: self.pausedSessionGracePeriod)
-            } catch {
-                return
-            }
-            guard !self.isPlaying, !self.isBuffering, !self.isReconnecting else { return }
-            self.audioSessionDeactivationTask = nil
-            self.deactivateAudioSession()
-        }
+        // Release the nonmixable playback session as soon as playback is paused.
+        // A later Play command reactivates it immediately before starting AVPlayer.
+        deactivateAudioSession()
     }
 
     private func deactivateAudioSession() {
-        audioSessionDeactivationTask?.cancel()
-        audioSessionDeactivationTask = nil
         guard audioSessionIsActive else { return }
         do {
             try AVAudioSession.sharedInstance().setActive(
