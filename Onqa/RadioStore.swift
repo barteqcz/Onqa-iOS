@@ -4,9 +4,9 @@ import MapKit
 import Network
 import Observation
 
+/// Observable application coordinator for settings, stations, favorites, location, catalog loading, and playback.
 @MainActor
 @Observable
-/// Observable application coordinator for settings, stations, favorites, location, catalog loading, and playback.
 final class RadioStore {
     var settings: AppSettings {
         didSet {
@@ -273,7 +273,6 @@ extension RadioStore {
     /// Older app versions stored favorites as display names. Migrate each
     /// legacy name to all matching catalog identities once the catalog is
     /// available; this preserves the old behavior for previously saved data.
-    // Convert pre-identity favorites (saved by station name) to stable station IDs once catalog data is available.
     private func migrateLegacyFavoriteNamesIfNeeded() {
         let knownNames = Set(catalogStations.map(\.name))
         let legacyNames = favorites.intersection(knownNames)

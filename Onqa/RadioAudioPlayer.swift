@@ -5,10 +5,10 @@ import Observation
 import os
 import UIKit
 
-@MainActor
-@Observable
 /// Main-actor owner of AVPlayer, audio-session lifecycle, stream metadata, and automatic recovery.
 /// `playbackRequestID` invalidates callbacks and tasks that belong to an older station request.
+@MainActor
+@Observable
 final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     private(set) var currentStation: RadioStation?
     private(set) var isPlaying = false {

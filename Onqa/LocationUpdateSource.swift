@@ -77,8 +77,8 @@ private struct LocationSample: Sendable {
  
  
  
-@MainActor
 /// Owns CLLocationManager and forwards rate-limited fixes, authorization changes, and failures to RadioStore.
+@MainActor
 final class LocationUpdateSource: NSObject, CLLocationManagerDelegate {
     static let desiredAccuracy = LocationRequestConfiguration.desiredAccuracy
 
