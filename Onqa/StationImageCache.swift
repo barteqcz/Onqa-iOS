@@ -2,9 +2,9 @@ import Foundation
 import ImageIO
 import UIKit
 
-/// Downloads a logo with a hard size cap. The cap is enforced while bytes
-/// arrive, so chunked responses without a Content-Length cannot exceed it.
-/// Task cancellation stops the transfer. URLCache stays shared across sessions.
+ 
+ 
+ 
 enum BoundedLogoDownload {
     static func load(
         from url: URL,
@@ -38,8 +38,8 @@ enum BoundedLogoDownload {
     }
 }
 
-/// Shared artwork cache. URLCache owns HTTP-aware memory/disk caching and eviction;
-/// decoded bitmaps stay in an NSCache so list rows and Now Playing reuse rasterized art.
+ 
+ 
 actor StationImageCache {
     static let shared = StationImageCache()
 
@@ -62,9 +62,9 @@ actor StationImageCache {
         decoded.totalCostLimit = 48 * 1024 * 1024
     }
 
-    /// URLCache handles cache validation, persistence, and eviction using the
-    /// response's HTTP cache headers. The in-flight table coalesces simultaneous
-    /// requests for the same logo before URLCache has a response to reuse.
+     
+     
+     
     func data(for url: URL) async throws -> Data {
         let key = url.absoluteString
         if let existing = inFlight[key] {
@@ -72,8 +72,8 @@ actor StationImageCache {
         }
 
         let request = Task<Data, Error> {
-            // The delegate enforces the cap while chunks arrive, including
-            // chunked/unknown-length responses that have no Content-Length.
+             
+             
             let data = try await BoundedLogoDownload.load(
                 from: Self.secureURL(url),
                 maximumBytes: Self.maximumLogoBytes,
@@ -96,11 +96,11 @@ actor StationImageCache {
         }
     }
 
-    /// App Transport Security only exempts audio/video loads, not logos, so an
-    /// `http://` logo URL would always fail. Try HTTPS instead; a server that
-    /// does not offer it fails as before and the station keeps its placeholder.
-    /// URLs with an explicit port are left alone, as that port is unlikely to
-    /// speak TLS.
+     
+     
+     
+     
+     
     static func secureURL(_ url: URL) -> URL {
         guard url.scheme?.lowercased() == "http",
               var components = URLComponents(url: url, resolvingAgainstBaseURL: false),
@@ -109,8 +109,8 @@ actor StationImageCache {
         return components.url ?? url
     }
 
-    /// Decoded, downsampled raster logo. The ImageIO thumbnail avoids decoding
-    /// full-size bitmap assets into list rows.
+     
+     
     func thumbnail(for url: URL, data: Data, maxPixel: CGFloat) -> UIImage? {
         let pixels = max(1, Int(maxPixel.rounded(.up)))
         let key = "\(url.absoluteString)@\(pixels)" as NSString
@@ -131,8 +131,8 @@ actor StationImageCache {
         return image
     }
 
-    /// Rasterizes an SVG once per URL and caches the resulting bitmap alongside
-    /// ordinary decoded thumbnails. At most two WebKit renders run concurrently.
+     
+     
     func renderedSVG(for url: URL, data: Data) async -> UIImage? {
         let cacheKey = "\(url.absoluteString)@svg"
         let key = cacheKey as NSString
@@ -186,7 +186,7 @@ actor StationImageCache {
         if svgRenderWaiters.isEmpty {
             activeSVGRenderCount = max(0, activeSVGRenderCount - 1)
         } else {
-            // Transfer the existing slot directly to the next waiter.
+             
             svgRenderWaiters.removeFirst().resume()
         }
     }
