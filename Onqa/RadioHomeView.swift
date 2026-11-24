@@ -227,7 +227,7 @@ struct RadioHomeView: View {
 
                 .padding(.horizontal, Self.stationContentHorizontalInset)
                 // Keep the scroll content tied to the viewport width, not to its widest child.
-                .frame(maxWidth: .infinity, alignment: .top)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
 
                 .id(Self.stationListBottomID)
             }
