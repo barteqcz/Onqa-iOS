@@ -22,6 +22,7 @@ final class RadioStore {
             }
 
             if oldValue.locationSource != settings.locationSource && hasConfirmedOnboardingThisSession {
+                cancelLocationNameRetry()
                 locationLookupID &+= 1
                 cancelReverseGeocoding()
                 isResolvingLocationName = false
@@ -62,6 +63,7 @@ final class RadioStore {
                     loadManualCoordinate()
                     refreshStations()
                 }
+                refreshLocationNameIfNeeded()
                 configureLocationUpdates()
             }
         }
@@ -75,28 +77,8 @@ final class RadioStore {
     /// When the automatic location name was last confirmed, shown as a
     /// "minutes ago" counter next to it.
     var locationRetrievedAt: Date?
-    /// True after a city lookup failed (offline, or no city at that point)
-    /// while an earlier name is still shown. The name is then kept, with its
-    /// counter running, and the lookup is retried.
-    /// A failed city refresh is tracked independently for each location mode.
-    /// This keeps the age warning tied to the city currently being displayed.
-    var gpsLocationNameOutdated = false
-    var manualLocationNameOutdated = false
-
-    var isLocationNameOutdated: Bool {
-        get {
-            settings.locationSource == .manual
-                ? manualLocationNameOutdated
-                : gpsLocationNameOutdated
-        }
-        set {
-            if settings.locationSource == .manual {
-                manualLocationNameOutdated = newValue
-            } else {
-                gpsLocationNameOutdated = newValue
-            }
-        }
-    }
+    @ObservationIgnored var gpsLocationNameRetryState = LocationNameRetryState()
+    @ObservationIgnored var manualLocationNameRetryState = LocationNameRetryState()
     /// True from the moment a reverse-geocode starts until it finishes, so the
     /// UI can tell "still looking up the name" apart from "no name found".
     var isResolvingLocationName = false
@@ -140,16 +122,12 @@ final class RadioStore {
     var backgroundActivitySession: CLBackgroundActivitySession?
     /// Pending, debounced teardown of location tracking (see `configureLocationUpdates`).
     @ObservationIgnored var locationStopTask: Task<Void, Never>?
-    /// Retries failed reverse geocoding even when Wi-Fi remains connected and GPS is stationary.
+    /// One retry task for the active mode; inactive retry deadlines remain saved.
     @ObservationIgnored var locationNameRetryTask: Task<Void, Never>?
+    @ObservationIgnored var locationNameRetryTaskSource: LocationSource?
+    @ObservationIgnored var locationNameRetryGeneration: UInt64 = 0
     var reverseGeocodingTask: Task<Void, Never>?
     var reverseGeocodingRequest: MKReverseGeocodingRequest?
-    var nameLookupFailures = 0
-    var nextNameLookupDate: Date?
-    /// Set when a fix was accepted while the app was in the background, where
-    /// reverse geocoding is skipped; the name is refreshed on return to the
-    /// foreground.
-    @ObservationIgnored var isLocationNameStale = false
     /// One manager, only used to read the current authorization status.
     /// Creating a new CLLocationManager for every status check is wasteful.
     @ObservationIgnored let authorizationProbe = CLLocationManager()
