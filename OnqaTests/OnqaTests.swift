@@ -482,6 +482,7 @@ struct OnqaTests {
         settings.locationSource = .manual
         settings.manualLatitude = 52.2
         settings.manualLongitude = 21.0
+        settings.manualCountryCode = "PL"
         settings.manualCityGeocodedAt = Date(timeIntervalSince1970: 1_800_000_000)
         settings.catalogETag = "\"abc\""
         let data = try JSONEncoder().encode(settings)
@@ -705,6 +706,17 @@ final class RadioStoreTests {
         store.settings = settings
 
         #expect(store.locationAgeText() != nil)
+    }
+
+    @Test func manualCountryFlagIsRestoredFromPersistedSettings() {
+        let store = RadioStore()
+        var settings = store.settings
+        settings.locationSource = .manual
+        settings.manualCity = "Gliwice"
+        settings.manualCountryCode = "PL"
+        store.settings = settings
+
+        #expect(store.locationFlag == "🇵🇱")
     }
 
     @Test func savedLocationIsNotShownBeforeOnboardingIsConfirmed() {
