@@ -1,5 +1,6 @@
 import Foundation
 import NowPlaying
+import UIKit
 
 // The system Now Playing framework observes this model and publishes radio metadata,
 // playback state, artwork, and transport commands to Lock Screen, Control Center, and Dynamic Island.
@@ -41,6 +42,37 @@ extension RadioAudioPlayer: MediaSessionRepresentable {
             .next { [weak self] in self?.onNext?() }.enabled(hasMultipleStations),
             .previous { [weak self] in self?.onPrevious?() }.enabled(hasMultipleStations)
         ]
+    }
+
+
+    func loadArtwork(for station: RadioStation) {
+        guard let text = station.logoURL, let url = URL(string: text) else { return }
+        let stationID = station.id
+
+        Task { [weak self] in
+            do {
+                let data = try await StationImageCache.shared.data(for: url)
+                let svg = StationLogoFormat.svgData(from: data)
+
+                let image: UIImage?
+                if let svg {
+                    image = await StationImageCache.shared.renderedSVG(for: url, data: svg)
+                } else {
+                    image = UIImage(data: data)
+                }
+
+                guard
+                    let self,
+                    self.currentStation?.id == stationID,
+                    let image,
+                    let artworkData = image.pngData()
+                else { return }
+
+                self.stationArtworkData = artworkData
+            } catch {
+                Log.playback.debug("Artwork unavailable: \\(error.localizedDescription, privacy: .public)")
+            }
+        }
     }
 
     // A local session must be made system-primary while the app is in the foreground.
