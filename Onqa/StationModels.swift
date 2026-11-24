@@ -39,18 +39,18 @@ struct ColorToken {
     }
 }
 
-/// Distance unit shown on station cards. It is never stored: it follows the
-/// system's Measurement System (Settings > General > Language & Region).
+ 
+ 
 enum DistanceUnit {
     case kilometers, miles
 
-    /// Metric regions use kilometres. The US and UK systems both use miles
-    /// for road distances.
+     
+     
     init(measurementSystem: Locale.MeasurementSystem) {
         self = measurementSystem == .metric ? .kilometers : .miles
     }
 
-    /// Locale-aware distance text ("12 km", "7 mi", "< 1 km") for a distance in kilometres.
+     
     func formatted(kilometers: Double) -> String {
         let unit: UnitLength = self == .miles ? .miles : .kilometers
         let value = Measurement(value: kilometers, unit: UnitLength.kilometers).converted(to: unit)
@@ -103,20 +103,20 @@ struct AppSettings: Codable, Equatable {
     var manualLatitude: Double?
     var manualLongitude: Double?
     var manualCity: String?
-    /// Country code returned by the last successful reverse geocode for the manual city.
+     
     var manualCountryCode: String?
-    /// Timestamp of the last successful reverse geocode for the cached manual city.
+     
     var manualCityGeocodedAt: Date?
     var catalogUpdateFrequency: CatalogUpdateFrequency = .weekly
     var lastCatalogUpdate: Date?
-    /// ETag of the installed catalog, used for conditional (If-None-Match) updates.
+     
     var catalogETag: String?
 
     init() {}
 
-    /// Swift's synthesized decoder throws when a non-optional key is missing,
-    /// even if the property has a default. Decode every key leniently so
-    /// settings saved by an older build keep working after a field is added.
+     
+     
+     
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         onboardingCompleted = try c.decodeIfPresent(Bool.self, forKey: .onboardingCompleted) ?? false
