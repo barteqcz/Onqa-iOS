@@ -85,6 +85,12 @@ enum LocationNamePolicy {
         !hasName && !isResolving && isRetryAllowed && appIsActive
     }
 
+    /// The age label is a warning that a refresh failed, not a general
+    /// indication that a cached city is more than a minute old.
+    static func shouldDisplayAge(hasName: Bool, hasFailedGeocode: Bool) -> Bool {
+        hasName && hasFailedGeocode
+    }
+
     /// A cached city without a timestamp predates persisted geocoding age.
     /// Treat it as needing a lookup so the cache can acquire a real age.
     static func hasSuccessfulGeocode(hasName: Bool, retrievedAt: Date?) -> Bool {
@@ -201,6 +207,11 @@ extension RadioStore {
     /// name. GPS timestamps are stored with SavedLocation; manual timestamps
     /// are stored alongside the manually selected city in AppSettings.
     var displayedLocationRetrievedAt: Date? {
+        guard LocationNamePolicy.shouldDisplayAge(
+            hasName: hasResolvedLocationName,
+            hasFailedGeocode: isLocationNameOutdated
+        ) else { return nil }
+
         if settings.locationSource == .manual {
             if settings.manualCity != nil {
                 return settings.manualCityGeocodedAt
