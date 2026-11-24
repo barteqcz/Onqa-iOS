@@ -19,8 +19,8 @@ enum LocationPresentation {
 }
 
 enum LocationTrackingPolicy {
-    /// Track while the app is visible or playback is active, including buffering
-    /// and reconnecting. A separate grace period handles an intentional stop.
+     
+     
     static func shouldTrack(
         source: LocationSource,
         hasLocationAccess: Bool,
@@ -31,7 +31,7 @@ enum LocationTrackingPolicy {
         return appIsActive || hasActivePlayback
     }
 
-    /// Preserve a background session until its scheduled stop grace period ends.
+     
     static func shouldKeepTrackingDuringStopGrace(
         source: LocationSource,
         hasLocationAccess: Bool,
@@ -46,10 +46,10 @@ enum LocationTrackingPolicy {
 }
 
 enum LocationRefreshPolicy {
-    /// Reuse cached station results until movement reaches the refresh
-    /// threshold. The location manager already filters by the same distance,
-    /// but its first fix is always delivered and coarse fixes jitter, so the
-    /// threshold is applied here as well.
+     
+     
+     
+     
     static func shouldReloadStations(
         from previousCoordinate: CLLocationCoordinate2D?,
         to coordinate: CLLocationCoordinate2D,
@@ -64,18 +64,18 @@ enum LocationRefreshPolicy {
     }
 }
 enum LocationFixQuality {
-    /// Matches the Android app: fixes are accepted whatever their accuracy, so
-    /// "Approximate Location" works as well as precise location (station
-    /// coverage areas are tens of kilometres wide). Only an invalid fix, which
-    /// Core Location marks with a negative accuracy, is dropped.
+     
+     
+     
+     
     static func isUsable(horizontalAccuracy: CLLocationAccuracy) -> Bool {
         horizontalAccuracy >= 0
     }
 }
 
 enum LocationNamePolicy {
-    /// City-name lookups are retried (with backoff) even when the listener has
-    /// not moved, but never in the background where nobody sees the name.
+     
+     
     static func shouldRetryLookup(
         hasName: Bool,
         isResolving: Bool,
@@ -85,21 +85,21 @@ enum LocationNamePolicy {
         !hasName && !isResolving && isRetryAllowed && appIsActive
     }
 
-    /// The age label is a warning that a refresh failed, not a general
-    /// indication that a cached city is more than a minute old.
+     
+     
     static func shouldDisplayAge(hasName: Bool, hasFailedGeocode: Bool) -> Bool {
         hasName && hasFailedGeocode
     }
 
-    /// A cached city without a timestamp predates persisted geocoding age.
-    /// Treat it as needing a lookup so the cache can acquire a real age.
+     
+     
     static func hasSuccessfulGeocode(hasName: Bool, retrievedAt: Date?) -> Bool {
         hasName && retrievedAt != nil
     }
 
-    /// Treat a cached city as current for at most the same minute in which
-    /// the header suppresses its age label. Older cached values are refreshed
-    /// when the app launches, returns to the foreground, or receives a fix.
+     
+     
+     
     static func hasFreshGeocode(
         hasName: Bool,
         retrievedAt: Date?,
@@ -135,13 +135,13 @@ struct LocationNameRetryState: Equatable {
 }
 
 enum LocationAgePolicy {
-    /// Nothing is shown for a location confirmed less than a minute ago, so a
-    /// fresh location has no extra text next to it.
+     
+     
     static let minimumAge: TimeInterval = 60
 
-    /// A localized relative age such as "5 min. ago". It is in minutes up to an
-    /// hour and in hours or days after that. Returns nil for a fresh location,
-    /// a missing timestamp or one in the future (the clock was changed).
+     
+     
+     
     static func text(since retrievedAt: Date?, now: Date = Date()) -> String? {
         guard let retrievedAt,
               now.timeIntervalSince(retrievedAt) >= minimumAge else { return nil }
@@ -158,9 +158,9 @@ extension RadioStore {
     }
 
     var canEnterApp: Bool {
-        // Permission is checked before Alright is enabled. Once the user
-        // confirms, keep the app route stable for this session instead of
-        // letting a transient Core Location status refresh undo the tap.
+         
+         
+         
         hasConfirmedOnboardingThisSession
     }
 
@@ -169,7 +169,7 @@ extension RadioStore {
             || locationAuthorizationStatus == .restricted
     }
 
-    /// A world globe is used until reverse geocoding can identify a country.
+     
     var locationFlag: String {
         let rawLocation = settings.locationSource == .manual
             ? (settings.manualCity ?? locationName)
@@ -184,8 +184,8 @@ extension RadioStore {
         return scalars.count == 2 ? String(String.UnicodeScalarView(scalars)) : "🌍"
     }
 
-    /// True while the location or its city name is still being retrieved; the
-    /// header shows a native progress spinner instead of text then.
+     
+     
     var isLocationPending: Bool {
         let rawLocation = settings.locationSource == .manual
             ? (settings.manualCity ?? locationName)
@@ -226,9 +226,9 @@ extension RadioStore {
         return String(localized: "Finding your location…")
     }
 
-    /// The last successful city-geocoding time for the currently displayed
-    /// name. GPS timestamps are stored with SavedLocation; manual timestamps
-    /// are stored alongside the manually selected city in AppSettings.
+     
+     
+     
     var displayedLocationRetrievedAt: Date? {
         guard LocationNamePolicy.shouldDisplayAge(
             hasName: hasResolvedLocationName,
@@ -246,7 +246,7 @@ extension RadioStore {
         return locationRetrievedAt
     }
 
-    /// How long ago the currently displayed city was successfully geocoded.
+     
     func locationAgeText(now: Date = Date()) -> String? {
         LocationAgePolicy.text(since: displayedLocationRetrievedAt, now: now)
     }
@@ -256,7 +256,7 @@ extension RadioStore {
         didBootstrap = true
         refreshLocationAuthorizationStatus()
         guard canEnterApp else { return }
-        // Covers the app being closed while Manual was selected with no location.
+         
         revertToAutoIfManualLocationMissing()
         configureLocationUpdates()
 
@@ -264,25 +264,25 @@ extension RadioStore {
             loadManualCoordinate()
             await loadStations()
         } else if let coordinate = locationCoordinate {
-            // The previous session's location was restored: show its stations
-            // right away. The first live fix corrects the list if the person
-            // has moved by at least the refresh threshold since then.
-            // Revalidate an aged cached city without waiting for station loading
-            // or a network-path event (Wi-Fi can stay connected while internet is down).
+             
+             
+             
+             
+             
             refreshLocationNameIfNeeded()
             await loadStations(at: coordinate)
         } else {
-            // Start catalog preparation independently of GPS so the catalog
-            // download card can appear while the header resolves the location.
+             
+             
             Task { _ = try? await ensureCatalogAvailable() }
         }
     }
 
-    /// Applies the automatic location saved by the previous session. The
-    /// header and station list can then be shown before the first fix arrives.
-    /// The last-known values are always kept, so switching from Manual back to
-    /// Auto restores them too; the live position is only set while Auto is
-    /// active and location access still holds.
+     
+     
+     
+     
+     
     func restoreLastAutomaticLocation(_ saved: SavedLocation) {
         lastAutomaticCoordinate = saved.coordinate
         lastAutomaticLocationName = saved.name
@@ -296,9 +296,9 @@ extension RadioStore {
         locationRetrievedAt = saved.retrievedAt
     }
 
-    /// Manual mode may be selected before the user picks a point. Only fall
-    /// back to Auto when GPS access is available; never force a user who declined
-    /// location access back into a mode they cannot use.
+     
+     
+     
     func revertToAutoIfManualLocationMissing() {
         guard settings.locationSource == .manual,
               settings.manualLatitude == nil || settings.manualLongitude == nil,
@@ -326,7 +326,7 @@ extension RadioStore {
         if locationPermissionDenied,
            settings.onboardingCompleted,
            settings.locationSource == .gps {
-            // If access is revoked in Settings, preserve app usability in Manual mode.
+             
             applyLocationSource(.manual)
         }
 
@@ -354,9 +354,9 @@ extension RadioStore {
         }
     }
 
-    /// Selects Auto only after Core Location authorization is available.
-    /// A first-time request uses the native permission prompt; a previous
-    /// denial is handled with an in-app alert that can open iOS Settings.
+     
+     
+     
     func selectLocationSource(_ source: LocationSource) {
         guard source == .gps else {
             isAutomaticLocationSelectionPending = false
@@ -395,9 +395,9 @@ extension RadioStore {
         settings = value
     }
 
-    /// Triggers the system permission prompt on first use. After a denial the
-    /// prompt cannot be shown again; the onboarding location card opens the
-    /// app's Settings page instead.
+     
+     
+     
     func requestLocationAccess() {
         refreshLocationAuthorizationStatus()
         if locationAuthorizationStatus == .notDetermined {
@@ -426,14 +426,14 @@ extension RadioStore {
             loadManualCoordinate()
             Task { await loadStations() }
         } else {
-            // Begin the catalog download independently of the live location stream.
+             
             Task { _ = try? await ensureCatalogAvailable() }
-            // The live location stream starts when the user confirms Auto.
+             
         }
     }
 
-    /// A fix from the location manager. A fix can only arrive with access, but
-    /// the cached status may lag behind it, so refresh the status first.
+     
+     
     func handleLocationManagerFix(_ location: CLLocation) {
         if !hasLocationAccess {
             refreshLocationAuthorizationStatus(configureTracking: false)
@@ -441,10 +441,10 @@ extension RadioStore {
         handleLocationFix(location)
     }
 
-    /// The location manager reports the current status as soon as it starts and
-    /// again whenever the person changes it. Starting tracking after a grant is
-    /// the job of the service session diagnostics, so only a loss of access
-    /// needs to reconfigure tracking here.
+     
+     
+     
+     
     func handleLocationAuthorizationChange(_ status: CLAuthorizationStatus) {
         let lostAccess = status == .denied || status == .restricted
         applyLocationAuthorizationStatus(status, configureTracking: lostAccess)
@@ -477,8 +477,8 @@ extension RadioStore {
             let nameIsCurrent = hasFreshGeocode
                 && !isLocationNameOutdated
                 && !isLocationNameStale
-            // No station or coordinate change, but a failed city lookup must
-            // not stay failed until the next kilometre of movement.
+             
+             
             if LocationNamePolicy.shouldRetryLookup(
                 hasName: nameIsCurrent,
                 isResolving: isResolvingLocationName,
@@ -498,16 +498,16 @@ extension RadioStore {
         locationCoordinate = location.coordinate
         lastAutomaticCoordinate = location.coordinate
         if isAppActive {
-            // Keep showing the current city while the next one resolves, so the
-            // header does not flip to a spinner at every 1 km of driving.
+             
+             
             refreshLocationName(
                 for: location,
                 saveManualCity: false,
                 keepsCurrentName: hasLocationName
             )
         } else {
-            // Nobody sees the name in the background; skip the network and
-            // geocoder rate limit, and refresh when the app is visible again.
+             
+             
             setLocationNameStale(true, for: .gps)
         }
         if movedEnough,
@@ -517,8 +517,8 @@ extension RadioStore {
         }
     }
 
-    /// Refreshes the city name after the app returns to the foreground if it
-    /// was skipped in the background or a previous lookup failed.
+     
+     
     func refreshLocationNameIfNeeded() {
         let source = settings.locationSource
         guard hasConfirmedOnboardingThisSession,
@@ -551,8 +551,8 @@ extension RadioStore {
         }
     }
 
-    /// Retry the current city's lookup immediately after connectivity returns.
-    /// The last successful name and timestamp remain visible while it retries.
+     
+     
     func retryLocationNameAfterReconnect() {
         let source = settings.locationSource
         cancelLocationNameRetry()
@@ -568,13 +568,13 @@ extension RadioStore {
     func handleLocationUpdateFailure(_ error: Error) {
         let code = (error as? CLError)?.code
         if let code, LocationErrorPolicy.action(for: code) == .keepTrying {
-            // "Location unknown" and network hiccups are transient: the
-            // manager keeps trying and delivers a fix when it has one.
+             
+             
             return
         }
         Log.location.error("Location updates failed: \(error.localizedDescription, privacy: .public)")
-        // The manager has stopped delivering. Drop it so the next
-        // configureLocationUpdates() starts a fresh one.
+         
+         
         stopLocationUpdates()
         refreshLocationAuthorizationStatus(configureTracking: false)
         if settings.locationSource == .gps && !hasLocationAccess {
@@ -586,8 +586,8 @@ extension RadioStore {
 
     func setAppIsActive(_ isActive: Bool) {
         isAppActive = isActive
-        // Refresh permission after returning from iOS Settings, and update
-        // background tracking when the app enters or leaves the foreground.
+         
+         
         refreshLocationAuthorizationStatus(configureTracking: false)
         configureLocationUpdates()
         if isActive {
@@ -595,8 +595,8 @@ extension RadioStore {
         }
     }
 
-    /// Keep the background location session briefly after playback actually stops,
-    /// allowing a quick resume without tearing down and recreating Core Location.
+     
+     
     private static let locationStopGracePeriod: Duration = .seconds(8)
 
     func configureLocationUpdates() {
@@ -608,9 +608,9 @@ extension RadioStore {
             return
         }
 
-        // Start the grace period as soon as all playback activity ends, even if
-        // the app is already in the background. This keeps location alive for
-        // the full grace period after a user pause/stop.
+         
+         
+         
         if !player.hasActivePlayback, backgroundActivitySession != nil {
             scheduleLocationStop()
         }
@@ -626,18 +626,18 @@ extension RadioStore {
             ensureLocationServiceSession()
             if player.hasActivePlayback {
                 cancelPendingLocationStop()
-                // Create while foregrounded so When In Use authorization can continue
-                // delivering location events after the app enters the background.
+                 
+                 
                 if backgroundActivitySession == nil {
                     backgroundActivitySession = CLBackgroundActivitySession()
                 }
             }
             startLocationUpdates()
         } else {
-            // Not tracking (e.g. in the background with nothing playing, or
-            // no access). Tear down immediately: a suspended app must never
-            // be left holding a location session, or iOS can keep showing
-            // the blue indicator for it.
+             
+             
+             
+             
             cancelPendingLocationStop()
             stopLocationUpdates()
             endBackgroundActivitySession()
@@ -655,13 +655,13 @@ extension RadioStore {
     }
 
     private func scheduleLocationStop() {
-        // Keep the earliest deadline; repeated calls must not push it back.
+         
         guard locationStopTask == nil else { return }
         locationStopTask = Task { [weak self] in
             try? await Task.sleep(for: Self.locationStopGracePeriod)
             guard !Task.isCancelled, let self else { return }
             self.locationStopTask = nil
-            // Re-evaluate: state may have changed during the grace period.
+             
             if !self.shouldTrackLocation {
                 self.stopLocationUpdates()
             }
@@ -696,7 +696,7 @@ extension RadioStore {
                     }
                 }
             } catch is CancellationError {
-                // Expected when switching to Manual mode.
+                 
             } catch {
                 Log.location.error("Location authorization diagnostics failed: \(error.localizedDescription, privacy: .public)")
             }
@@ -712,11 +712,11 @@ extension RadioStore {
 
     func startLocationUpdates() {
         guard locationUpdateSource == nil else { return }
-        // Station coverage areas are tens of kilometres wide, and the app only
-        // refreshes station results after roughly 1 km of movement. Request a
-        // coarse fix and use a distance filter to reduce unnecessary wakeups.
-        // Core Location chooses the positioning technologies; this configuration
-        // does not guarantee that GPS stays off during a drive.
+         
+         
+         
+         
+         
         let source = LocationUpdateSource()
         source.onFix = { [weak self] location in
             self?.handleLocationManagerFix(location)
@@ -741,14 +741,14 @@ extension RadioStore {
         backgroundActivitySession = nil
     }
 
-    /// Port of the Android StationCoverageManager: keep playing the current station from the nearest
-    /// transmitter in coverage, otherwise fall back to the same network, a favorite, or the nearest
-    /// station, and stop if nothing is in range.
+     
+     
+     
     func checkCoverageAndSwitch() {
-        // A location refresh can finish while a newly selected stream is still
-        // preparing or reconnecting. Do not replace or stop AVPlayer during
-        // that transition; transmitter switching resumes after playback is
-        // stable and a subsequent accepted location update arrives.
+         
+         
+         
+         
         guard player.isPlaying,
               !player.isReconnecting,
               let current = player.currentStation,
@@ -811,7 +811,7 @@ extension RadioStore {
         value.locationSource = .manual
         value.manualLatitude = coordinate.latitude
         value.manualLongitude = coordinate.longitude
-        // Keep the last successful city visible until this point is resolved.
+         
         if completesOnboarding {
             value.onboardingCompleted = true
         }
@@ -819,8 +819,8 @@ extension RadioStore {
         locationCoordinate = coordinate
         if settings.manualCity == nil && locationName == nil,
            let cachedName = lastAutomaticLocationName {
-            // Reuse the last successfully geocoded city while this manual
-            // point is waiting for its own reverse-geocoding result.
+             
+             
             locationName = cachedName
             locationCountryCode = lastAutomaticLocationCountryCode
             locationRetrievedAt = lastAutomaticLocationRetrievedAt
@@ -843,8 +843,8 @@ extension RadioStore {
     func loadManualCoordinate() {
         guard let latitude = settings.manualLatitude, let longitude = settings.manualLongitude else {
             locationCoordinate = nil
-            // Keep the last successful city available while the person is
-            // choosing a manual point; no GPS/location retrieval is changed.
+             
+             
             if settings.manualCity == nil {
                 locationName = lastAutomaticLocationName
                 locationCountryCode = lastAutomaticLocationCountryCode
@@ -933,8 +933,8 @@ extension RadioStore {
         locationNameRetryTaskSource = nil
     }
 
-    /// Only the selected mode owns an active timer. Inactive mode retains its
-    /// failure count and absolute retry deadline while paused.
+     
+     
     private func scheduleLocationNameRetry(for source: LocationSource) {
         cancelLocationNameRetry()
         guard settings.locationSource == source,
@@ -988,7 +988,7 @@ extension RadioStore {
         reverseGeocodingTask = Task { [weak self] in
             guard let self else { return }
             let result = await self.reverseGeocode(location)
-            // Ignore completions from an inactive mode or superseded coordinate.
+             
             guard !Task.isCancelled,
                   requestID == self.locationLookupID,
                   self.settings.locationSource == sourceAtRequest else { return }
