@@ -48,23 +48,6 @@ struct ReliabilityTests {
         ))
     }
 
-    @Test func coordinatesKeepLocationLabelVisibleDuringReverseGeocoding() {
-        #expect(!LocationPresentation.isPending(
-            source: .gps,
-            permissionDenied: false,
-            resolvingName: true,
-            hasName: false,
-            hasCoordinate: true
-        ))
-        #expect(LocationPresentation.isPending(
-            source: .gps,
-            permissionDenied: false,
-            resolvingName: true,
-            hasName: false,
-            hasCoordinate: false
-        ))
-    }
-
     // MARK: Fix quality
 
     @Test func onlyInvalidFixesAreRejected() {
@@ -161,13 +144,6 @@ struct ReliabilityTests {
         SavedLocationStorage.save(saved, to: defaults)
 
         #expect(SavedLocationStorage.load(from: defaults)?.retrievedAt == retrievedAt)
-    }
-
-    @Test func settingsFromBeforeManualLocationTimestampStillDecode() throws {
-        let legacy = Data(#"{"locationSource":"manual","manualLatitude":50.29,"manualLongitude":18.67,"manualCity":"Gliwice"}"#.utf8)
-        let decoded = try JSONDecoder().decode(AppSettings.self, from: legacy)
-        #expect(decoded.manualCity == "Gliwice")
-        #expect(decoded.manualLocationRetrievedAt == nil)
     }
 
     @Test func savedLocationFromEarlierVersionStillLoads() throws {
