@@ -730,6 +730,14 @@ extension RadioStore {
         }
         settings = value
         locationCoordinate = coordinate
+        if settings.manualCity == nil && locationName == nil,
+           let cachedName = lastAutomaticLocationName {
+            // Reuse the last successfully geocoded city while this manual
+            // point is waiting for its own reverse-geocoding result.
+            locationName = cachedName
+            locationCountryCode = lastAutomaticLocationCountryCode
+            locationRetrievedAt = lastAutomaticLocationRetrievedAt
+        }
 
         if completesOnboarding {
             hasConfirmedOnboardingThisSession = true
