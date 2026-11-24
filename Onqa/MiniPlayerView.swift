@@ -3,9 +3,9 @@ import MapKit
 import UIKit
 import Observation
 
-// MARK: - Mini player metadata
+ 
 
-/// Keeps short ICY titles still, and gently scrolls longer ones in a seamless loop.
+ 
 private struct MiniPlayerMetadataView: View {
     let text: String
     let color: Color
@@ -65,15 +65,15 @@ private struct MiniPlayerMetadataView: View {
     }
 }
 
-// MARK: - Mini player swipe
+ 
 
-/// Horizontal swipe on the mini player: right plays the previous station,
-/// left plays the next one.
-///
-/// The bar follows the finger, then on commit slides out in the swipe
-/// direction, the station changes while it is off-screen, and the new bar
-/// slides in from the opposite side. All state lives here (outside the
-/// `.id(station.id)` rebuild) so the motion is continuous.
+ 
+ 
+ 
+ 
+ 
+ 
+ 
 private struct MiniPlayerSwipe: ViewModifier {
     let isEnabled: Bool
     let onPrevious: () -> Void
@@ -84,10 +84,10 @@ private struct MiniPlayerSwipe: ViewModifier {
     @State private var size: CGSize = .zero
     private enum Phase { case idle, slidingOut, slidingIn }
     @State private var phase: Phase = .idle
-    /// Bumped on every commit so a superseded slide-in never resets state.
+     
     @State private var generation = 0
     @State private var hapticTrigger = 0
-    /// Only used to notice a cancelled drag (e.g. a system interruption).
+     
     @GestureState private var isDragging = false
 
     private let distanceThreshold: CGFloat = 50
@@ -98,9 +98,9 @@ private struct MiniPlayerSwipe: ViewModifier {
 
     func body(content: Content) -> some View {
         ZStack {
-            // Stays put while the bar slides away, so taps in that area never
-            // fall through to the station cards behind the mini player (e.g.
-            // when skipping very fast and the bar is momentarily off-screen).
+             
+             
+             
             Color.clear
                 .frame(width: size.width, height: size.height)
                 .contentShape(Rectangle())
@@ -111,9 +111,9 @@ private struct MiniPlayerSwipe: ViewModifier {
                 .offset(x: offsetX)
                 .opacity(opacity)
         }
-        // On the stationary container (not the moving bar), so a new swipe
-        // is still recognised while the bar is mid-slide.
-        // Simultaneous so the play/pause button and the hit-target tap keep working.
+         
+         
+         
         .simultaneousGesture(isEnabled ? swipe : nil)
         .onChange(of: isDragging) { _, dragging in
             if !dragging && phase == .idle && offsetX != 0 { springBack() }
@@ -145,9 +145,9 @@ private struct MiniPlayerSwipe: ViewModifier {
                 guard isHorizontal(value) else { return springBack() }
 
                 if drag < -distanceThreshold || flick < -flickThreshold {
-                    commit(direction: -1, action: onNext)       // left -> next
+                    commit(direction: -1, action: onNext)        
                 } else if drag > distanceThreshold || flick > flickThreshold {
-                    commit(direction: 1, action: onPrevious)   // right -> previous
+                    commit(direction: 1, action: onPrevious)    
                 } else {
                     springBack()
                 }
@@ -159,15 +159,15 @@ private struct MiniPlayerSwipe: ViewModifier {
     }
 
     private func commit(direction: CGFloat, action: @escaping () -> Void) {
-        // A swipe is accepted while the previous slide-in is still running,
-        // so stations can be skipped quickly; the new slide-out simply
-        // starts from wherever the bar currently is.
+         
+         
+         
         generation += 1
         let current = generation
         phase = .slidingOut
         hapticTrigger += 1
 
-        // 1. Slide the current bar out in the swipe direction.
+         
         withAnimation(.easeIn(duration: 0.13)) {
             offsetX = direction * size.width
             opacity = 0
@@ -176,8 +176,8 @@ private struct MiniPlayerSwipe: ViewModifier {
         Task { @MainActor in
             try? await Task.sleep(for: slideOut)
 
-            // 2. Switch station while the bar is off-screen and park the
-            //    new bar on the opposite side, without animating.
+             
+             
             action()
             var jump = Transaction()
             jump.disablesAnimations = true
@@ -186,7 +186,7 @@ private struct MiniPlayerSwipe: ViewModifier {
                 opacity = 0
             }
 
-            // 3. Slide the new bar in. Input is accepted again right away.
+             
             phase = .slidingIn
             withAnimation(.spring(response: 0.34, dampingFraction: 0.85)) {
                 offsetX = 0
@@ -198,7 +198,7 @@ private struct MiniPlayerSwipe: ViewModifier {
     }
 }
 
-// MARK: - Mini player
+ 
 
 struct MiniPlayerView: View {
     let store: RadioStore
@@ -294,8 +294,8 @@ struct MiniPlayerView: View {
                 interactive: true
             )
             .animation(.easeInOut(duration: 0.2), value: player.isPlaying)
-            // Make the whole player a hit target so taps on its empty areas
-            // do not fall through to the station cards scrolling behind it.
+             
+             
             .contentShape(shape)
             .onTapGesture {}
             .id(station.id)
@@ -306,10 +306,10 @@ struct MiniPlayerView: View {
                 )
             )
             .animation(.spring(response: 0.42, dampingFraction: 0.82), value: station.id)
-            // Applied outside `.id(station.id)` on purpose: the drag offset must
-            // survive the station change, otherwise the freshly inserted bar
-            // starts at 0 and the release looks like a jump instead of a
-            // smooth spring back.
+             
+             
+             
+             
             .modifier(
                 MiniPlayerSwipe(
                     isEnabled: player.hasMultipleStations,
@@ -317,10 +317,10 @@ struct MiniPlayerView: View {
                     onNext: store.playNext
                 )
             )
-            // Favoriting the playing station recolors the player (accent and
-            // glass tint) in the same animated update that slides its card to
-            // the top of the list. Recoloring glass inside that spring breaks
-            // the card's slide, so the favorite-driven recolor is not animated.
+             
+             
+             
+             
             .transaction(value: isFavorite) { $0.animation = nil }
         }
     }
