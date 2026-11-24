@@ -98,7 +98,7 @@ struct RadioHomeView: View {
     @ScaledMetric(relativeTo: .title) private var headerRowHeight: CGFloat = 38
     @State private var bottomSafeInset: CGFloat = 0
     @State private var miniPlayerHeight: CGFloat = 88
-    @State private var isScrolledToBottom = false
+    @State private var scrollDistanceFromBottom: CGFloat = .greatestFiniteMagnitude
 
     /// How far the mini player sits below the bottom safe-area edge. Shared by
     /// the player's padding and the fade behind it so they cannot drift apart.
@@ -125,6 +125,7 @@ struct RadioHomeView: View {
     /// Shared 14-point spacing between station cards and the bottom of every header.
     private static let stationSpacing: CGFloat = 14
     private static let stationListBottomID = "station-list-bottom"
+    private static let scrollBottomFollowTolerance: CGFloat = 48
 
     /// Small scroll-content inset keeps the first station's outline fully visible.
     private static let stationListTopMargin: CGFloat = 5
@@ -242,39 +243,37 @@ struct RadioHomeView: View {
 
             ScrollViewReader { scrollProxy in
                 ScrollView {
-                    VStack(spacing: 0) {
-                        VStack(spacing: Self.stationSpacing) {
-                            // The offline card already explains the state, so avoid
-                            // showing a duplicate banner above it.
-                            if !store.isNetworkAvailable && presentedCatalogStatus != .offline {
-                                StatusBanner(
-                                    message: String(localized: "No internet connection"),
-                                    systemImage: "wifi.slash",
-                                    tint: .orange
-                                )
-                                .transition(.move(edge: .top).combined(with: .opacity))
-                            }
-
-                            if let error = store.errorMessage {
-                                StatusBanner(
-                                    message: error,
-                                    systemImage: "exclamationmark.triangle",
-                                    tint: .orange,
-                                    actionTitle: String(localized: "Retry"),
-                                    action: { store.refreshStations() }
-                                )
-                                .transition(.move(edge: .top).combined(with: .opacity))
-                            }
-
-                            stationContent(columns: columns)
+                    VStack(spacing: Self.stationSpacing) {
+                        // The offline card already explains the state, so avoid
+                        // showing a duplicate banner above it.
+                        if !store.isNetworkAvailable && presentedCatalogStatus != .offline {
+                            StatusBanner(
+                                message: String(localized: "No internet connection"),
+                                systemImage: "wifi.slash",
+                                tint: .orange
+                            )
+                            .transition(.move(edge: .top).combined(with: .opacity))
                         }
 
-                    // A zero-height target keeps the list's true bottom at the
-                    // final card, without adding visual or scrollable padding.
-                        Color.clear
-                            .frame(height: 0)
-                            .id(Self.stationListBottomID)
+                        if let error = store.errorMessage {
+                            StatusBanner(
+                                message: error,
+                                systemImage: "exclamationmark.triangle",
+                                tint: .orange,
+                                actionTitle: String(localized: "Retry"),
+                                action: { store.refreshStations() }
+                            )
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                        }
+
+                        stationContent(columns: columns)
                     }
+                    // Keep the original 16-point side inset; the player has
+                    // its own independent horizontal inset.
+                    .padding(.horizontal, Self.stationContentHorizontalInset)
+                    // Use the actual content stack as the scroll target. It
+                    // has a real frame, unlike a zero-height sentinel.
+                    .id(Self.stationListBottomID)
                 }
                 // Keep a small inset so the first station's outline is not clipped.
                 .contentMargins(.top, stationListTopInset, for: .scrollContent)
@@ -308,8 +307,7 @@ struct RadioHomeView: View {
 
                         if showsMiniPlayer {
                             VStack(spacing: 0) {
-                                // Keep the list-to-player gap identical to
-                                // the spacing between adjacent station cards.
+                                // Match the space between station cards exactly.
                                 Color.clear
                                     .frame(height: Self.stationSpacing)
 
@@ -337,20 +335,25 @@ struct RadioHomeView: View {
                 .scrollDismissesKeyboard(.interactively)
                 .animation(.snappy(duration: 0.24), value: store.isNetworkAvailable)
                 .animation(.snappy(duration: 0.24), value: store.errorMessage)
-                .onScrollGeometryChange(for: Bool.self) { geometry in
-                    geometry.visibleRect.maxY >= geometry.contentSize.height - 2
-                } action: { _, atBottom in
-                    isScrolledToBottom = atBottom
+                .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                    max(0, geometry.contentSize.height - geometry.visibleRect.maxY)
+                } action: { _, distanceFromBottom in
+                    scrollDistanceFromBottom = distanceFromBottom
                 }
                 .onChange(of: showsMiniPlayer) { wasShowing, isShowing in
-                    // Only follow the new inset when the user was already at
-                    // the bottom. Scrolling elsewhere must never be interrupted.
-                    guard !wasShowing, isShowing, isScrolledToBottom else { return }
+                    // Remember whether the user was at the bottom before the
+                    // mini-player changes the scroll view's bottom safe area.
+                    guard
+                        !wasShowing,
+                        isShowing,
+                        scrollDistanceFromBottom <= Self.scrollBottomFollowTolerance
+                    else { return }
 
                     Task { @MainActor in
-                        // Let the safe-area inset join the scroll view before
-                        // moving the bottom target above the mini player.
-                        await Task.yield()
+                        // Wait for the safe-area inset to be laid out before
+                        // aligning the content stack with the newly reduced viewport.
+                        try? await Task.sleep(for: .milliseconds(140))
+                        guard showsMiniPlayer else { return }
                         withAnimation(.spring(response: 0.52, dampingFraction: 0.86)) {
                             scrollProxy.scrollTo(Self.stationListBottomID, anchor: .bottom)
                         }
