@@ -3,11 +3,11 @@ import MapKit
 import UIKit
 import Observation
 
-// MARK: - Map picker
+ 
 
-/// A displayable MapKit city-search result. The completion is retained for
-/// the follow-up local search, while the strings keep the observable state easy
-/// to test without manufacturing MapKit-owned completion objects.
+ 
+ 
+ 
 struct CitySearchResult: Identifiable {
     let title: String
     let subtitle: String
@@ -28,7 +28,7 @@ struct CitySearchResult: Identifiable {
     }
 }
 
-/// Live city/address suggestions from MapKit's search completer.
+ 
 @MainActor
 @Observable
 final class CitySearchModel {
@@ -54,8 +54,8 @@ final class CitySearchModel {
         completer.queryFragment = trimmed
     }
 
-    /// Publishes the latest results as one observable state change. Kept
-    /// separate from MapKit's delegate so the result-update path is testable.
+     
+     
     func setResults(_ results: [CitySearchResult]) {
         self.results = results
     }
@@ -68,8 +68,8 @@ final class CitySearchModel {
     }
 }
 
-/// MapKit requires an NSObject delegate. Keeping that adapter separate means
-/// the observable model itself doesn't inherit NSObject.
+ 
+ 
 @MainActor
 private final class CitySearchCompleterDelegate: NSObject, @MainActor MKLocalSearchCompleterDelegate {
     weak var owner: CitySearchModel?
@@ -260,8 +260,8 @@ struct MapLocationPickerView: View {
         hasSelectedLocation = true
         searchText = ""
 
-        // Retarget smoothly before dismissing the keyboard so the map settles
-        // on the selected place without a viewport-driven jump.
+         
+         
         withAnimation(.smooth(duration: 0.45)) {
             recenterMap(on: coordinate)
         }
