@@ -487,7 +487,7 @@ struct RadioHomeView: View {
     }
 
     private var locationHeader: some View {
-        HStack(alignment: .center, spacing: 10) {
+        HStack(alignment: .center, spacing: 8) {
             if !store.isLocationPending {
                 Text(store.locationFlag)
                     .font(.system(size: headerFlagSize))
