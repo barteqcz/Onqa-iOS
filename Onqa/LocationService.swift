@@ -804,6 +804,13 @@ extension RadioStore {
         // a failed offline lookup must not replace it with "Unknown location".
         let coordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
         locationCoordinate = coordinate
+        if settings.manualCity == nil && locationName == nil {
+            // On a fresh launch in Manual mode, reuse the last automatic city
+            // as a clearly aged fallback until the selected point resolves.
+            locationName = lastAutomaticLocationName
+            locationCountryCode = lastAutomaticLocationCountryCode
+            locationRetrievedAt = lastAutomaticLocationRetrievedAt
+        }
         refreshLocationName(
             for: CLLocation(latitude: latitude, longitude: longitude),
             saveManualCity: true,
@@ -828,7 +835,7 @@ extension RadioStore {
     }
 
     /// A lookup that fails (offline, or no city at that point) is retried with
-    /// exponential backoff on later GPS updates rather than on every one.
+    /// exponential backoff on later location updates rather than on every fix.
     var isNameLookupRetryAllowed: Bool {
         guard let next = nextNameLookupDate else { return true }
         return Date() >= next
