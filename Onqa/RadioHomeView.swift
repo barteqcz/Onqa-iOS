@@ -313,6 +313,7 @@ struct RadioHomeView: View {
                         scrollProxy.scrollTo(Self.stationListBottomID, anchor: .bottom)
                     }
                 }
+            }
         }
     }
 
