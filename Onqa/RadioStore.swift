@@ -122,6 +122,8 @@ final class RadioStore {
     var backgroundActivitySession: CLBackgroundActivitySession?
     /// Pending, debounced teardown of location tracking (see `configureLocationUpdates`).
     @ObservationIgnored var locationStopTask: Task<Void, Never>?
+    /// Retries failed reverse geocoding even when Wi-Fi remains connected and GPS is stationary.
+    @ObservationIgnored var locationNameRetryTask: Task<Void, Never>?
     var reverseGeocodingTask: Task<Void, Never>?
     var reverseGeocodingRequest: MKReverseGeocodingRequest?
     var nameLookupFailures = 0
