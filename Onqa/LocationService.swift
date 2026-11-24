@@ -133,8 +133,8 @@ extension RadioStore {
         return scalars.count == 2 ? String(String.UnicodeScalarView(scalars)) : "🌍"
     }
 
-    /// True while the location or its city name is still being retrieved; the
-    /// header shows a native progress spinner instead of text then.
+    /// True until a coordinate or cached name is available. Once coordinates
+    /// exist, the header keeps the last label and its age visible during lookup.
     var isLocationPending: Bool {
         let rawLocation = settings.locationSource == .manual
             ? (settings.manualCity ?? locationName)
