@@ -84,12 +84,14 @@ extension RadioAudioPlayer: MediaSessionRepresentable {
         nowPlayingSession = session
 
         Task { [weak self] in
+            guard let self, self.nowPlayingSession === session else { return }
             do {
                 try await session.requestToBecomeSystemPrimary()
+                guard self.nowPlayingSession === session else { return }
             } catch {
                 Log.playback.error("Unable to publish Now Playing session: \(error.localizedDescription, privacy: .public)")
-                if self?.nowPlayingSession === session {
-                    self?.nowPlayingSession = nil
+                if self.nowPlayingSession === session {
+                    self.nowPlayingSession = nil
                 }
             }
         }
