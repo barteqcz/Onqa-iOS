@@ -1,7 +1,7 @@
 import os
 
-/// Central `os.Logger` categories. Messages never include coordinates or other
-/// personal data; use `privacy: .public` only for non-sensitive text.
+ 
+ 
 enum Log {
     private static let subsystem = "com.barteqcz.onqa"
 
