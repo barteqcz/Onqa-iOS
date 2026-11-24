@@ -39,18 +39,13 @@ struct ColorToken {
     }
 }
 
- 
- 
 enum DistanceUnit {
     case kilometers, miles
 
-     
-     
     init(measurementSystem: Locale.MeasurementSystem) {
         self = measurementSystem == .metric ? .kilometers : .miles
     }
 
-     
     func formatted(kilometers: Double) -> String {
         let unit: UnitLength = self == .miles ? .miles : .kilometers
         let value = Measurement(value: kilometers, unit: UnitLength.kilometers).converted(to: unit)
@@ -104,20 +99,17 @@ struct AppSettings: Codable, Equatable {
     var manualLatitude: Double?
     var manualLongitude: Double?
     var manualCity: String?
-     
+
     var manualCountryCode: String?
-     
+
     var manualCityGeocodedAt: Date?
     var catalogUpdateFrequency: CatalogUpdateFrequency = .weekly
     var lastCatalogUpdate: Date?
-     
+
     var catalogETag: String?
 
     init() {}
 
-     
-     
-     
     // Decode each key independently so older settings files remain valid as new preferences are introduced.
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)

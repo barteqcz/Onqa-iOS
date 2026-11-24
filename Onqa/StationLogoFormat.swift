@@ -1,12 +1,8 @@
 import Foundation
 import Compression
 
- 
- 
- 
 enum StationLogoFormat {
-     
-     
+
     static func svgData(from data: Data) -> Data? {
         var bytes = data
         if bytes.count > 2, bytes[bytes.startIndex] == 0x1f, bytes[bytes.startIndex + 1] == 0x8b {
@@ -26,7 +22,7 @@ enum StationLogoFormat {
         guard b.count > 18, b[0] == 0x1f, b[1] == 0x8b, b[2] == 8 else { return nil }
         let flags = b[3]
         let trailerStart = b.count - 8
-         
+
         guard flags & 0xE0 == 0 else { return nil }
 
         var offset = 10
@@ -48,16 +44,12 @@ enum StationLogoFormat {
         }
         guard offset < trailerStart else { return nil }
 
-         
-         
         let uncompressedSize = UInt32(b[b.count - 4])
             | (UInt32(b[b.count - 3]) << 8)
             | (UInt32(b[b.count - 2]) << 16)
             | (UInt32(b[b.count - 1]) << 24)
         guard uncompressedSize <= UInt32(maximumDecompressedBytes) else { return nil }
 
-         
-         
         let deflated = Data(b[offset..<trailerStart])
         guard let inflated = inflateDeflate(
             deflated,
@@ -72,8 +64,7 @@ enum StationLogoFormat {
         let bufferSize = 64 * 1024
         let destination = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
         defer { destination.deallocate() }
-         
-         
+
         let emptySource = UnsafeMutablePointer<UInt8>.allocate(capacity: 1)
         defer { emptySource.deallocate() }
 
@@ -118,8 +109,7 @@ enum StationLogoFormat {
                 case COMPRESSION_STATUS_END:
                     return output
                 case COMPRESSION_STATUS_OK:
-                     
-                     
+
                     guard produced > 0 || stream.src_size > 0 else { return nil }
                 default:
                     return nil

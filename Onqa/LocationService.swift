@@ -20,8 +20,7 @@ enum LocationPresentation {
 
 // Keep tracking decisions as pure rules so app lifecycle and playback behavior can be tested independently.
 enum LocationTrackingPolicy {
-     
-     
+
     static func shouldTrack(
         source: LocationSource,
         hasLocationAccess: Bool,
@@ -32,7 +31,6 @@ enum LocationTrackingPolicy {
         return appIsActive || hasActivePlayback
     }
 
-     
     static func shouldKeepTrackingDuringStopGrace(
         source: LocationSource,
         hasLocationAccess: Bool,
@@ -47,10 +45,7 @@ enum LocationTrackingPolicy {
 }
 
 enum LocationRefreshPolicy {
-     
-     
-     
-     
+
     static func shouldReloadStations(
         from previousCoordinate: CLLocationCoordinate2D?,
         to coordinate: CLLocationCoordinate2D,
@@ -65,18 +60,14 @@ enum LocationRefreshPolicy {
     }
 }
 enum LocationFixQuality {
-     
-     
-     
-     
+
     static func isUsable(horizontalAccuracy: CLLocationAccuracy) -> Bool {
         horizontalAccuracy >= 0
     }
 }
 
 enum LocationNamePolicy {
-     
-     
+
     static func shouldRetryLookup(
         hasName: Bool,
         isResolving: Bool,
@@ -86,21 +77,14 @@ enum LocationNamePolicy {
         !hasName && !isResolving && isRetryAllowed && appIsActive
     }
 
-     
-     
     static func shouldDisplayAge(hasName: Bool, hasFailedGeocode: Bool) -> Bool {
         hasName && hasFailedGeocode
     }
 
-     
-     
     static func hasSuccessfulGeocode(hasName: Bool, retrievedAt: Date?) -> Bool {
         hasName && retrievedAt != nil
     }
 
-     
-     
-     
     static func hasFreshGeocode(
         hasName: Bool,
         retrievedAt: Date?,
@@ -136,13 +120,9 @@ struct LocationNameRetryState: Equatable {
 }
 
 enum LocationAgePolicy {
-     
-     
+
     static let minimumAge: TimeInterval = 60
 
-     
-     
-     
     static func text(since retrievedAt: Date?, now: Date = Date()) -> String? {
         guard let retrievedAt,
               now.timeIntervalSince(retrievedAt) >= minimumAge else { return nil }
@@ -160,9 +140,7 @@ extension RadioStore {
     }
 
     var canEnterApp: Bool {
-         
-         
-         
+
         hasConfirmedOnboardingThisSession
     }
 
@@ -171,7 +149,6 @@ extension RadioStore {
             || locationAuthorizationStatus == .restricted
     }
 
-     
     var locationFlag: String {
         let rawLocation = settings.locationSource == .manual
             ? (settings.manualCity ?? locationName)
@@ -186,8 +163,6 @@ extension RadioStore {
         return scalars.count == 2 ? String(String.UnicodeScalarView(scalars)) : "🌍"
     }
 
-     
-     
     var isLocationPending: Bool {
         let rawLocation = settings.locationSource == .manual
             ? (settings.manualCity ?? locationName)
@@ -228,9 +203,6 @@ extension RadioStore {
         return String(localized: "Finding your location…")
     }
 
-     
-     
-     
     var displayedLocationRetrievedAt: Date? {
         guard LocationNamePolicy.shouldDisplayAge(
             hasName: hasResolvedLocationName,
@@ -248,7 +220,6 @@ extension RadioStore {
         return locationRetrievedAt
     }
 
-     
     func locationAgeText(now: Date = Date()) -> String? {
         LocationAgePolicy.text(since: displayedLocationRetrievedAt, now: now)
     }
@@ -258,7 +229,7 @@ extension RadioStore {
         didBootstrap = true
         refreshLocationAuthorizationStatus()
         guard canEnterApp else { return }
-         
+
         revertToAutoIfManualLocationMissing()
         configureLocationUpdates()
 
@@ -266,25 +237,15 @@ extension RadioStore {
             loadManualCoordinate()
             await loadStations()
         } else if let coordinate = locationCoordinate {
-             
-             
-             
-             
-             
+
             refreshLocationNameIfNeeded()
             await loadStations(at: coordinate)
         } else {
-             
-             
+
             Task { _ = try? await ensureCatalogAvailable() }
         }
     }
 
-     
-     
-     
-     
-     
     func restoreLastAutomaticLocation(_ saved: SavedLocation) {
         lastAutomaticCoordinate = saved.coordinate
         lastAutomaticLocationName = saved.name
@@ -298,9 +259,6 @@ extension RadioStore {
         locationRetrievedAt = saved.retrievedAt
     }
 
-     
-     
-     
     func revertToAutoIfManualLocationMissing() {
         guard settings.locationSource == .manual,
               settings.manualLatitude == nil || settings.manualLongitude == nil,
@@ -328,7 +286,7 @@ extension RadioStore {
         if locationPermissionDenied,
            settings.onboardingCompleted,
            settings.locationSource == .gps {
-             
+
             applyLocationSource(.manual)
         }
 
@@ -356,9 +314,6 @@ extension RadioStore {
         }
     }
 
-     
-     
-     
     func selectLocationSource(_ source: LocationSource) {
         guard source == .gps else {
             isAutomaticLocationSelectionPending = false
@@ -397,9 +352,6 @@ extension RadioStore {
         settings = value
     }
 
-     
-     
-     
     func requestLocationAccess() {
         refreshLocationAuthorizationStatus()
         if locationAuthorizationStatus == .notDetermined {
@@ -428,14 +380,12 @@ extension RadioStore {
             loadManualCoordinate()
             Task { await loadStations() }
         } else {
-             
+
             Task { _ = try? await ensureCatalogAvailable() }
-             
+
         }
     }
 
-     
-     
     func handleLocationManagerFix(_ location: CLLocation) {
         if !hasLocationAccess {
             refreshLocationAuthorizationStatus(configureTracking: false)
@@ -443,10 +393,6 @@ extension RadioStore {
         handleLocationFix(location)
     }
 
-     
-     
-     
-     
     func handleLocationAuthorizationChange(_ status: CLAuthorizationStatus) {
         let lostAccess = status == .denied || status == .restricted
         applyLocationAuthorizationStatus(status, configureTracking: lostAccess)
@@ -480,8 +426,7 @@ extension RadioStore {
             let nameIsCurrent = hasFreshGeocode
                 && !isLocationNameOutdated
                 && !isLocationNameStale
-             
-             
+
             if LocationNamePolicy.shouldRetryLookup(
                 hasName: nameIsCurrent,
                 isResolving: isResolvingLocationName,
@@ -501,16 +446,14 @@ extension RadioStore {
         locationCoordinate = location.coordinate
         lastAutomaticCoordinate = location.coordinate
         if isAppActive {
-             
-             
+
             refreshLocationName(
                 for: location,
                 saveManualCity: false,
                 keepsCurrentName: hasLocationName
             )
         } else {
-             
-             
+
             setLocationNameStale(true, for: .gps)
         }
         if movedEnough,
@@ -520,8 +463,6 @@ extension RadioStore {
         }
     }
 
-     
-     
     func refreshLocationNameIfNeeded() {
         let source = settings.locationSource
         guard hasConfirmedOnboardingThisSession,
@@ -554,8 +495,6 @@ extension RadioStore {
         }
     }
 
-     
-     
     func retryLocationNameAfterReconnect() {
         let source = settings.locationSource
         cancelLocationNameRetry()
@@ -571,13 +510,11 @@ extension RadioStore {
     func handleLocationUpdateFailure(_ error: Error) {
         let code = (error as? CLError)?.code
         if let code, LocationErrorPolicy.action(for: code) == .keepTrying {
-             
-             
+
             return
         }
         Log.location.error("Location updates failed: \(error.localizedDescription, privacy: .public)")
-         
-         
+
         stopLocationUpdates()
         refreshLocationAuthorizationStatus(configureTracking: false)
         if settings.locationSource == .gps && !hasLocationAccess {
@@ -589,8 +526,7 @@ extension RadioStore {
 
     func setAppIsActive(_ isActive: Bool) {
         isAppActive = isActive
-         
-         
+
         refreshLocationAuthorizationStatus(configureTracking: false)
         configureLocationUpdates()
         if isActive {
@@ -598,8 +534,6 @@ extension RadioStore {
         }
     }
 
-     
-     
     private static let locationStopGracePeriod: Duration = .seconds(8)
 
     // GPS tracking is needed while the app is active or audio is active; a short grace period smooths playback transitions.
@@ -612,9 +546,6 @@ extension RadioStore {
             return
         }
 
-         
-         
-         
         if !player.hasActivePlayback, backgroundActivitySession != nil {
             scheduleLocationStop()
         }
@@ -630,18 +561,14 @@ extension RadioStore {
             ensureLocationServiceSession()
             if player.hasActivePlayback {
                 cancelPendingLocationStop()
-                 
-                 
+
                 if backgroundActivitySession == nil {
                     backgroundActivitySession = CLBackgroundActivitySession()
                 }
             }
             startLocationUpdates()
         } else {
-             
-             
-             
-             
+
             cancelPendingLocationStop()
             stopLocationUpdates()
             endBackgroundActivitySession()
@@ -659,13 +586,13 @@ extension RadioStore {
     }
 
     private func scheduleLocationStop() {
-         
+
         guard locationStopTask == nil else { return }
         locationStopTask = Task { [weak self] in
             try? await Task.sleep(for: Self.locationStopGracePeriod)
             guard !Task.isCancelled, let self else { return }
             self.locationStopTask = nil
-             
+
             if !self.shouldTrackLocation {
                 self.stopLocationUpdates()
             }
@@ -700,7 +627,7 @@ extension RadioStore {
                     }
                 }
             } catch is CancellationError {
-                 
+
             } catch {
                 Log.location.error("Location authorization diagnostics failed: \(error.localizedDescription, privacy: .public)")
             }
@@ -716,11 +643,7 @@ extension RadioStore {
 
     func startLocationUpdates() {
         guard locationUpdateSource == nil else { return }
-         
-         
-         
-         
-         
+
         let source = LocationUpdateSource()
         source.onFix = { [weak self] location in
             self?.handleLocationManagerFix(location)
@@ -745,15 +668,9 @@ extension RadioStore {
         backgroundActivitySession = nil
     }
 
-     
-     
-     
     // Keep the current station while it has a transmitter in range; otherwise choose the best in-range fallback.
     func checkCoverageAndSwitch() {
-         
-         
-         
-         
+
         guard player.isPlaying,
               !player.isReconnecting,
               let current = player.currentStation,
@@ -816,7 +733,7 @@ extension RadioStore {
         value.locationSource = .manual
         value.manualLatitude = coordinate.latitude
         value.manualLongitude = coordinate.longitude
-         
+
         if completesOnboarding {
             value.onboardingCompleted = true
         }
@@ -824,8 +741,7 @@ extension RadioStore {
         locationCoordinate = coordinate
         if settings.manualCity == nil && locationName == nil,
            let cachedName = lastAutomaticLocationName {
-             
-             
+
             locationName = cachedName
             locationCountryCode = lastAutomaticLocationCountryCode
             locationRetrievedAt = lastAutomaticLocationRetrievedAt
@@ -848,8 +764,7 @@ extension RadioStore {
     func loadManualCoordinate() {
         guard let latitude = settings.manualLatitude, let longitude = settings.manualLongitude else {
             locationCoordinate = nil
-             
-             
+
             if settings.manualCity == nil {
                 locationName = lastAutomaticLocationName
                 locationCountryCode = lastAutomaticLocationCountryCode
@@ -938,8 +853,6 @@ extension RadioStore {
         locationNameRetryTaskSource = nil
     }
 
-     
-     
     private func scheduleLocationNameRetry(for source: LocationSource) {
         cancelLocationNameRetry()
         guard settings.locationSource == source,
@@ -994,7 +907,7 @@ extension RadioStore {
         reverseGeocodingTask = Task { [weak self] in
             guard let self else { return }
             let result = await self.reverseGeocode(location)
-             
+
             guard !Task.isCancelled,
                   requestID == self.locationLookupID,
                   self.settings.locationSource == sourceAtRequest else { return }

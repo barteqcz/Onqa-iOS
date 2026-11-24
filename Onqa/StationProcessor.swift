@@ -9,8 +9,6 @@ enum StationProcessor {
         return origin.distance(from: destination) / 1_000
     }
 
-     
-     
     static func hasMoved(
         atLeast thresholdKm: Double,
         from coordinate: CLLocationCoordinate2D,
@@ -24,9 +22,6 @@ enum StationProcessor {
         ) >= thresholdKm
     }
 
-     
-     
-     
     static func shouldProcessLocationUpdate(
         from previousCoordinate: CLLocationCoordinate2D?,
         to coordinate: CLLocationCoordinate2D,

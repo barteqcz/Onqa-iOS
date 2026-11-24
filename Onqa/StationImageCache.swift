@@ -2,9 +2,6 @@ import Foundation
 import ImageIO
 import UIKit
 
- 
- 
- 
 // Stream image bytes with a hard size limit so malformed or unexpectedly large logos cannot exhaust memory.
 enum BoundedLogoDownload {
     static func load(
@@ -39,14 +36,11 @@ enum BoundedLogoDownload {
     }
 }
 
- 
- 
 /// Deduplicates in-flight downloads/renders and caches decoded images behind a concurrency-safe interface.
 actor StationImageCache {
     static let shared = StationImageCache()
 
     private static let maximumLogoBytes = 8 * 1024 * 1024
-
 
     private static let urlCache = URLCache(
         memoryCapacity: 32 * 1024 * 1024,
@@ -64,9 +58,6 @@ actor StationImageCache {
         decoded.totalCostLimit = 48 * 1024 * 1024
     }
 
-     
-     
-     
     // Concurrent requests for the same URL await one shared task instead of downloading the same logo repeatedly.
     func data(for url: URL) async throws -> Data {
         let key = url.absoluteString
@@ -75,8 +66,7 @@ actor StationImageCache {
         }
 
         let request = Task<Data, Error> {
-             
-             
+
             let data = try await BoundedLogoDownload.load(
                 from: Self.secureURL(url),
                 maximumBytes: Self.maximumLogoBytes,
@@ -99,11 +89,6 @@ actor StationImageCache {
         }
     }
 
-     
-     
-     
-     
-     
     static func secureURL(_ url: URL) -> URL {
         guard url.scheme?.lowercased() == "http",
               var components = URLComponents(url: url, resolvingAgainstBaseURL: false),
@@ -112,8 +97,6 @@ actor StationImageCache {
         return components.url ?? url
     }
 
-     
-     
     func thumbnail(for url: URL, data: Data, maxPixel: CGFloat) -> UIImage? {
         let pixels = max(1, Int(maxPixel.rounded(.up)))
         let key = "\(url.absoluteString)@\(pixels)" as NSString
@@ -134,8 +117,6 @@ actor StationImageCache {
         return image
     }
 
-     
-     
     // Limit expensive SVG rendering to two concurrent jobs and reuse both in-flight and completed results.
     func renderedSVG(for url: URL, data: Data) async -> UIImage? {
         let cacheKey = "\(url.absoluteString)@svg"
@@ -190,7 +171,7 @@ actor StationImageCache {
         if svgRenderWaiters.isEmpty {
             activeSVGRenderCount = max(0, activeSVGRenderCount - 1)
         } else {
-             
+
             svgRenderWaiters.removeFirst().resume()
         }
     }

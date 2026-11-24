@@ -1,20 +1,12 @@
 import Foundation
 import CoreLocation
 
- 
- 
- 
- 
- 
- 
- 
 struct SavedLocation: Codable, Equatable, Sendable {
     var latitude: Double
     var longitude: Double
     var name: String
     var countryCode: String?
-     
-     
+
     var retrievedAt: Date?
 
     init(
@@ -34,7 +26,6 @@ struct SavedLocation: Codable, Equatable, Sendable {
         CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
     }
 
-     
     var isValid: Bool {
         CLLocationCoordinate2DIsValid(coordinate)
             && !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty

@@ -3,7 +3,6 @@ import MapKit
 import UIKit
 import Observation
 
- 
 struct HQBadge: View {
     let color: Color
 
@@ -20,8 +19,6 @@ struct HQBadge: View {
     }
 }
 
- 
- 
 private struct PlayingBarsView: View {
     let color: Color
 
@@ -47,14 +44,12 @@ private struct PlayingBarsView: View {
 
     private func barHeight(_ index: Int, at t: TimeInterval) -> CGFloat {
         let angle = t * Self.speeds[index] + Self.phases[index]
-         
-        let level = (sin(angle) + sin(angle * 0.61 + 1.3)) / 4 + 0.5  
+
+        let level = (sin(angle) + sin(angle * 0.61 + 1.3)) / 4 + 0.5
         return Self.maxHeight * (0.25 + 0.75 * level)
     }
 }
 
- 
- 
 struct StationCardView: View {
     let station: RadioStation
     let isActive: Bool

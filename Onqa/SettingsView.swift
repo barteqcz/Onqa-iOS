@@ -23,11 +23,11 @@ struct SettingsView: View {
             dataSection
             appearanceSection
         }
-         
+
         .background(Palette.background.ignoresSafeArea())
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
-         
+
         .toolbar(.visible, for: .navigationBar)
         .alert("Location", isPresented: $store.shouldShowLocationSettingsPrompt) {
             Button("Settings") {
@@ -70,8 +70,6 @@ struct SettingsView: View {
         }
     }
 
-     
-
     private var locationSection: some View {
         Section {
             Picker("Location source", selection: Binding(
@@ -90,8 +88,7 @@ struct SettingsView: View {
                 } label: {
                     VStack(alignment: .leading, spacing: 5) {
                         Text("Pick location on map")
-                         
-                         
+
                         if store.settings.manualLatitude != nil {
                             Text(store.locationLabel)
                                 .font(.subheadline)
@@ -233,8 +230,6 @@ struct SettingsView: View {
             Text("Appearance")
         }
     }
-
-     
 
     private var lastUpdatedText: String? {
         guard let date = store.settings.lastCatalogUpdate else { return nil }

@@ -1,8 +1,6 @@
 import UIKit
 import WebKit
 
- 
- 
 @MainActor
 final class SVGNowPlayingArtworkRenderer: NSObject, WKNavigationDelegate {
     private static let artworkSize = CGSize(width: 512, height: 512)
@@ -10,7 +8,7 @@ final class SVGNowPlayingArtworkRenderer: NSObject, WKNavigationDelegate {
     private var webView: WKWebView?
     private var continuation: CheckedContinuation<UIImage?, Never>?
     private var timeoutTask: Task<Void, Never>?
-     
+
     private static let renderTimeout: Duration = .seconds(8)
 
     static func render(data: Data) async -> UIImage? {
