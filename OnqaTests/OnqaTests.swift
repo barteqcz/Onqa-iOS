@@ -694,7 +694,7 @@ final class RadioStoreTests {
         #expect(store.locationAgeText() != nil)
     }
 
-    @Test func ageIsNotShownForManualLocation() {
+    @Test func ageIsShownForManualLocation() {
         let store = RadioStore()
         var settings = store.settings
         settings.locationSource = .manual
