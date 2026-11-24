@@ -98,7 +98,7 @@ struct RadioHomeView: View {
     @ScaledMetric(relativeTo: .title) private var headerRowHeight: CGFloat = 38
     @State private var bottomSafeInset: CGFloat = 0
     @State private var miniPlayerHeight: CGFloat = 88
-    @State private var scrollDistanceFromBottom: CGFloat = .greatestFiniteMagnitude
+    @State private var shouldFollowBottomWhenMiniPlayerAppears = false
 
     /// How far the mini player sits below the bottom safe-area edge. Shared by
     /// the player's padding and the fade behind it so they cannot drift apart.
@@ -335,10 +335,15 @@ struct RadioHomeView: View {
                 .scrollDismissesKeyboard(.interactively)
                 .animation(.snappy(duration: 0.24), value: store.isNetworkAvailable)
                 .animation(.snappy(duration: 0.24), value: store.errorMessage)
-                .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                .onScrollGeometryChange(for: Bool.self) { geometry in
                     max(0, geometry.contentSize.height - geometry.visibleRect.maxY)
-                } action: { _, distanceFromBottom in
-                    scrollDistanceFromBottom = distanceFromBottom
+                        <= Self.scrollBottomFollowTolerance
+                } action: { _, isAtBottom in
+                    // Preserve the pre-player state. The safe-area inset changes
+                    // the viewport immediately after playback begins.
+                    if !showsMiniPlayer {
+                        shouldFollowBottomWhenMiniPlayerAppears = isAtBottom
+                    }
                 }
                 .onChange(of: showsMiniPlayer) { wasShowing, isShowing in
                     // Remember whether the user was at the bottom before the
@@ -346,7 +351,7 @@ struct RadioHomeView: View {
                     guard
                         !wasShowing,
                         isShowing,
-                        scrollDistanceFromBottom <= Self.scrollBottomFollowTolerance
+                        shouldFollowBottomWhenMiniPlayerAppears
                     else { return }
 
                     Task { @MainActor in
