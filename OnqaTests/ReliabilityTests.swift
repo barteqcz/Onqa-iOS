@@ -2,6 +2,8 @@ import Testing
 import Foundation
 import CoreLocation
 import SQLite3
+import MediaPlayer
+import UIKit
 @testable import Onqa
 
 /// Covers the retry/backoff behaviour, stream-metadata filtering, logo URL
@@ -144,6 +146,22 @@ struct ReliabilityTests {
         #expect(automatic.isStale)
         #expect(!manual.isNameOutdated)
         #expect(!manual.isStale)
+    }
+
+    @Test @MainActor func nowPlayingArtworkMatchesRequestedSystemSizes() throws {
+        let source = UIGraphicsImageRenderer(size: CGSize(width: 40, height: 20)).image { renderer in
+            UIColor.systemRed.setFill()
+            renderer.fill(CGRect(x: 0, y: 0, width: 40, height: 20))
+        }
+
+        let artwork = NowPlayingArtworkFactory.makeArtwork(from: source)
+        #expect(artwork.bounds.size == CGSize(width: 512, height: 512))
+
+        let compact = try #require(artwork.image(at: CGSize(width: 128, height: 96)))
+        #expect(compact.size == CGSize(width: 128, height: 96))
+
+        let square = try #require(artwork.image(at: CGSize(width: 256, height: 256)))
+        #expect(square.size == CGSize(width: 256, height: 256))
     }
 
     // MARK: Fix quality
