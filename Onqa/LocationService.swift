@@ -233,10 +233,10 @@ extension RadioStore {
             // The previous session's location was restored: show its stations
             // right away. The first live fix corrects the list if the person
             // has moved by at least the refresh threshold since then.
-            await loadStations(at: coordinate)
-            // A cached city older than the counter's one-minute threshold gets
-            // revalidated on launch, even if Wi-Fi never reported a path change.
+            // Revalidate an aged cached city without waiting for station loading
+            // or a network-path event (Wi-Fi can stay connected while internet is down).
             refreshLocationNameIfNeeded()
+            await loadStations(at: coordinate)
         } else {
             // Start catalog preparation independently of GPS so the catalog
             // download card can appear while the header resolves the location.
