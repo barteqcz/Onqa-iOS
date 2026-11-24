@@ -1,20 +1,20 @@
 import Foundation
 import CoreLocation
 
-/// The last automatically determined position together with the city it was
-/// resolved to. It is kept between launches so the station list can appear at
-/// once instead of waiting for the first location fix, like on Android.
-///
-/// The position and the name are stored as one unit and only ever written
-/// together, after the city lookup for exactly that position has succeeded, so
-/// a restored name never belongs to a different place than the coordinate.
+ 
+ 
+ 
+ 
+ 
+ 
+ 
 struct SavedLocation: Codable, Equatable, Sendable {
     var latitude: Double
     var longitude: Double
     var name: String
     var countryCode: String?
-    /// When the name was last confirmed for this position. Optional so data
-    /// saved by earlier versions, which has no such value, still loads.
+     
+     
     var retrievedAt: Date?
 
     init(
@@ -34,7 +34,7 @@ struct SavedLocation: Codable, Equatable, Sendable {
         CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
     }
 
-    /// False for values that cannot be queried or shown, such as damaged data.
+     
     var isValid: Bool {
         CLLocationCoordinate2DIsValid(coordinate)
             && !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
