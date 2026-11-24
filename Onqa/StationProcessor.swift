@@ -8,8 +8,8 @@ enum StationProcessor {
         return origin.distance(from: destination) / 1_000
     }
 
-    /// Returns true when a new coordinate is at least the requested distance
-    /// from the last accepted coordinate.
+     
+     
     static func hasMoved(
         atLeast thresholdKm: Double,
         from coordinate: CLLocationCoordinate2D,
@@ -23,9 +23,9 @@ enum StationProcessor {
         ) >= thresholdKm
     }
 
-    /// Accept the initial fix, then process coordinate changes only after
-    /// the listener has moved by at least the configured distance.
-    /// Reverse-geocoding retries are handled separately from station updates.
+     
+     
+     
     static func shouldProcessLocationUpdate(
         from previousCoordinate: CLLocationCoordinate2D?,
         to coordinate: CLLocationCoordinate2D,
