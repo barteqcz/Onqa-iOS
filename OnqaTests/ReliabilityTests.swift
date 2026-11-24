@@ -48,6 +48,25 @@ struct ReliabilityTests {
         ))
     }
 
+    @Test func cachedCityWithoutTimestampNeedsGeocodingRefresh() {
+        let hasSuccessfulGeocode = LocationNamePolicy.hasSuccessfulGeocode(
+            hasName: true,
+            retrievedAt: nil
+        )
+
+        #expect(!hasSuccessfulGeocode)
+        #expect(LocationNamePolicy.shouldRetryLookup(
+            hasName: hasSuccessfulGeocode,
+            isResolving: false,
+            isRetryAllowed: true,
+            appIsActive: true
+        ))
+        #expect(LocationNamePolicy.hasSuccessfulGeocode(
+            hasName: true,
+            retrievedAt: Date()
+        ))
+    }
+
     // MARK: Fix quality
 
     @Test func onlyInvalidFixesAreRejected() {
