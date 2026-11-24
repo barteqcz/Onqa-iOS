@@ -1,6 +1,9 @@
 import Foundation
 import AVFoundation
+import MediaPlayer
+#if canImport(NowPlaying)
 import NowPlaying
+#endif
 import Observation
 import os
 
@@ -9,11 +12,14 @@ import os
 @MainActor
 @Observable
 final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
-    private(set) var currentStation: RadioStation?
+    private(set) var currentStation: RadioStation? {
+        didSet { updateNowPlaying() }
+    }
     private(set) var isPlaying = false {
         didSet {
             if oldValue != isPlaying {
                 onPlaybackActivityChange?()
+                updateNowPlaying()
             }
         }
     }
@@ -21,6 +27,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         didSet {
             if oldValue != isBuffering {
                 onPlaybackActivityChange?()
+                updateNowPlaying()
             }
         }
     }
@@ -29,10 +36,15 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         didSet {
             if oldValue != isReconnecting {
                 onPlaybackActivityChange?()
+                updateNowPlaying()
             }
         }
     }
-    private(set) var metadata: String?
+    private(set) var metadata: String? {
+        didSet {
+            if oldValue != metadata { updateNowPlaying() }
+        }
+    }
 
     var hasActivePlayback: Bool {
         isPlaying || isBuffering || isReconnecting
@@ -67,14 +79,23 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     private var itemStatusObservation: NSKeyValueObservation?
     private var metadataOutput: AVPlayerItemMetadataOutput?
     var stationArtworkData: Data?
+    var stationArtwork: MPMediaItemArtwork?
+    #if canImport(NowPlaying)
+    @available(iOS 27.0, *)
+    @ObservationIgnored
     var nowPlayingSession: MediaSession<RadioAudioPlayer>?
+    #endif
     private var interruptionObserver: NSObjectProtocol?
     private var audioSessionIsActive = false
     private var useHQForCurrentStation = true
     private var mediaServicesResetObserver: NSObjectProtocol?
 
 
-    var hasMultipleStations = false
+    var hasMultipleStations = false {
+        didSet {
+            if oldValue != hasMultipleStations { updateRemoteCommandAvailability() }
+        }
+    }
 
     override init() {
         super.init()
@@ -125,6 +146,11 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
             Task { @MainActor in
                 self?.updatePlaybackState()
             }
+        }
+
+        if #unavailable(iOS 27.0) {
+            configureRemoteCommands()
+            updateRemoteCommandAvailability()
         }
     }
 
@@ -592,7 +618,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
 
         player.replaceCurrentItem(with: item)
         player.play()
-        activateNowPlayingSession()
+        updateNowPlayingForCurrentOS()
     }
 
     // Fade out before releasing the current item so pauses and station changes do not click or pop.
@@ -719,7 +745,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         metadataOutput = nil
         currentStation = nil
         metadata = nil
-        nowPlayingSession = nil
+        clearNowPlayingForCurrentOS()
         isPlaying = false
         isBuffering = false
         playbackError = false
