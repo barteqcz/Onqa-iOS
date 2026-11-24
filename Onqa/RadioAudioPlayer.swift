@@ -275,7 +275,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
             metadataOutput = nil
             deactivateAudioSession()
             currentStation = station
-            stationArtworkData = nil
+        stationArtworkData = nil
             loadArtwork(for: station)
             metadata = nil
             isPlaying = false
