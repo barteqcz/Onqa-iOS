@@ -4,13 +4,13 @@ import UIKit
 import Observation
 
 extension OnqaAccent {
-    /// Built once per accent. A fresh dynamic `UIColor` on every access would
-    /// never compare equal, which defeats `StationCardView`'s `Equatable` check
-    /// and rebuilds every card on each store update.
+     
+     
+     
     private static let swiftUIColors: [OnqaAccent: Color] = Dictionary(
         uniqueKeysWithValues: allCases.map { accent -> (OnqaAccent, Color) in
             let value = accent.color
-            // Darken accents in light mode for stronger contrast on light surfaces.
+             
             let color = Color(uiColor: UIColor { traits in
                 let f: CGFloat = traits.userInterfaceStyle == .dark ? 1 : 0.45
                 return UIColor(red: value.red * f, green: value.green * f, blue: value.blue * f, alpha: 1)
