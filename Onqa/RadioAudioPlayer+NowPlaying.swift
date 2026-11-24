@@ -143,7 +143,7 @@ extension RadioAudioPlayer {
     func clearNowPlayingForCurrentOS() {
         #if canImport(NowPlaying)
         if #available(iOS 27.0, *) {
-            nowPlayingSession = nil
+            nowPlayingSessionStorage = nil
             return
         }
         #endif
@@ -155,6 +155,7 @@ extension RadioAudioPlayer {
     func loadArtwork(for station: RadioStation) {
         stationArtwork = nil
         stationArtworkData = nil
+        updateNowPlaying()
         guard let text = station.logoURL, let url = URL(string: text) else {
             updateNowPlaying()
             return
@@ -237,20 +238,20 @@ extension RadioAudioPlayer: MediaSessionRepresentable {
 
     // Keep a single app-local session and promote it when playback starts.
     func activateNowPlayingSession() {
-        guard currentStation != nil, nowPlayingSession == nil else { return }
+        guard currentStation != nil, nowPlayingSessionStorage == nil else { return }
 
         let session = MediaSession(self)
-        nowPlayingSession = session
+        nowPlayingSessionStorage = session
 
         Task { [weak self] in
-            guard let self, self.nowPlayingSession === session else { return }
+            guard let self, self.nowPlayingSessionStorage === session else { return }
             do {
                 try await session.requestToBecomeApplicationPrimary()
-                guard self.nowPlayingSession === session else { return }
+                guard self.nowPlayingSessionStorage === session else { return }
             } catch {
                 Log.playback.error("Unable to publish Now Playing session: \(error.localizedDescription, privacy: .public)")
-                if self.nowPlayingSession === session {
-                    self.nowPlayingSession = nil
+                if self.nowPlayingSessionStorage === session {
+                    self.nowPlayingSessionStorage = nil
                 }
             }
         }
