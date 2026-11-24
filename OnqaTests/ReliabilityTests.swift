@@ -6,11 +6,11 @@ import MediaPlayer
 import UIKit
 @testable import Onqa
 
-/// Covers the retry/backoff behaviour, stream-metadata filtering, logo URL
-/// upgrade and the catalog database code (validation, install and query).
+ 
+ 
 @Suite
 struct ReliabilityTests {
-    // MARK: Retry backoff
+     
 
     @Test func backoffGrowsExponentiallyAndIsCapped() {
         func delay(_ failures: Int) -> TimeInterval {
@@ -30,7 +30,7 @@ struct ReliabilityTests {
         #expect(RetryBackoff.delay(afterFailures: -3, base: 3, cap: 30) == 0)
     }
 
-    // MARK: Reverse-geocoding retry policy
+     
 
     @Test func nameLookupIsRetriedOnlyWhenVisibleAndAllowed() {
         #expect(LocationNamePolicy.shouldRetryLookup(
@@ -199,18 +199,18 @@ struct ReliabilityTests {
         #expect(pixel(original, x: 256, y: 64) != pixel(original, x: 256, y: 448))
     }
 
-    // MARK: Fix quality
+     
 
     @Test func onlyInvalidFixesAreRejected() {
         #expect(!LocationFixQuality.isUsable(horizontalAccuracy: -1))
         #expect(LocationFixQuality.isUsable(horizontalAccuracy: 0))
         #expect(LocationFixQuality.isUsable(horizontalAccuracy: 10))
-        // Cell-tower and "Approximate Location" fixes are accepted, as on Android.
+         
         #expect(LocationFixQuality.isUsable(horizontalAccuracy: 3_000))
         #expect(LocationFixQuality.isUsable(horizontalAccuracy: 25_000))
     }
 
-    // MARK: Location manager failures
+     
 
     @Test func transientLocationErrorsKeepTracking() {
         #expect(LocationErrorPolicy.action(for: .locationUnknown) == .keepTrying)
@@ -218,12 +218,12 @@ struct ReliabilityTests {
     }
 
     @Test func fatalLocationErrorsStopTracking() {
-        // After a denial the manager has stopped, so the next
-        // configureLocationUpdates() has to be able to start a fresh one.
+         
+         
         #expect(LocationErrorPolicy.action(for: .denied) == .stopTracking)
     }
 
-    // MARK: Saved location
+     
 
     private func isolatedDefaults() -> UserDefaults {
         let name = "onqa.tests.savedlocation.\(UUID().uuidString)"
@@ -280,7 +280,7 @@ struct ReliabilityTests {
         #expect(defaults.data(forKey: SavedLocationStorage.key) == nil)
     }
 
-    // MARK: Location age
+     
 
     @Test func savedLocationKeepsItsRetrievalTime() {
         let defaults = isolatedDefaults()
@@ -298,7 +298,7 @@ struct ReliabilityTests {
     }
 
     @Test func savedLocationFromEarlierVersionStillLoads() throws {
-        // Data written before the retrieval time existed has no such key.
+         
         let defaults = isolatedDefaults()
         let legacy = Data(#"{"latitude":50.29,"longitude":18.67,"name":"Gliwice","countryCode":"PL"}"#.utf8)
         defaults.set(legacy, forKey: SavedLocationStorage.key)
@@ -326,12 +326,12 @@ struct ReliabilityTests {
         let fiveMinutes = LocationAgePolicy.text(since: now.addingTimeInterval(-300), now: now)
         let twoHours = LocationAgePolicy.text(since: now.addingTimeInterval(-7_200), now: now)
 
-        // Wording is localized, but the number it counts in is not.
+         
         #expect(fiveMinutes?.contains("5") == true)
         #expect(twoHours?.contains("2") == true)
     }
 
-    // MARK: Stream metadata
+     
 
     @Test func onlyTrackTitleIdentifiersAreAccepted() {
         #expect(StreamMetadata.isTrackTitle(identifier: "icy/StreamTitle"))
@@ -342,7 +342,7 @@ struct ReliabilityTests {
         #expect(!StreamMetadata.isTrackTitle(identifier: nil))
     }
 
-    // MARK: Logo URLs
+     
 
     @Test func plainHTTPLogoURLsAreUpgradedToHTTPS() {
         let http = URL(string: "http://example.com/logo.png?size=2")!
@@ -356,7 +356,7 @@ struct ReliabilityTests {
         #expect(StationImageCache.secureURL(withPort) == withPort)
     }
 
-    // MARK: Catalog database
+     
 
     @Test func validCatalogPassesValidationAndIsQueried() throws {
         let url = try makeCatalog()
@@ -364,7 +364,7 @@ struct ReliabilityTests {
 
         try CatalogRepository.validateDatabase(at: url)
 
-        // Stand 0.1 degrees of latitude (about 11 km) north of the transmitter.
+         
         let stations = try CatalogRepository.queryCatalog(
             path: url.path,
             latitude: 50.1,
@@ -379,7 +379,7 @@ struct ReliabilityTests {
         let distance = try #require(first.distanceKm)
         #expect(abs(distance - 11.1) < 0.3)
 
-        // Missing optional columns fall back to defaults instead of failing.
+         
         let second = try #require(stations.first { $0.name == "Radio Two" })
         #expect(second.network == nil)
         #expect(second.streamURLHQ == nil)
@@ -421,7 +421,7 @@ struct ReliabilityTests {
         try CatalogRepository.installCatalog(from: first, to: destination)
         #expect(FileManager.default.fileExists(atPath: destination.path))
 
-        // Installing over an existing catalog must also succeed.
+         
         try CatalogRepository.installCatalog(from: second, to: destination)
         try CatalogRepository.validateDatabase(at: destination)
         #expect(!FileManager.default.fileExists(atPath: destination.appendingPathExtension("new").path))
@@ -450,10 +450,10 @@ struct ReliabilityTests {
         try CatalogRepository.validateDatabase(at: destination)
     }
 
-    // MARK: Helpers
+     
 
-    /// Builds a small catalog with the schema the app expects: two stations,
-    /// one transmitter, one network name and one HQ stream.
+     
+     
     private func makeCatalog(omitCoverageColumn: Bool = false) throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("onqa-catalog-test-\(UUID().uuidString).sqlite")
