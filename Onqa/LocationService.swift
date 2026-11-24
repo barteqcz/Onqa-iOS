@@ -84,6 +84,12 @@ enum LocationNamePolicy {
     ) -> Bool {
         !hasName && !isResolving && isRetryAllowed && appIsActive
     }
+
+    /// A cached city without a timestamp predates persisted geocoding age.
+    /// Treat it as needing a lookup so the cache can acquire a real age.
+    static func hasSuccessfulGeocode(hasName: Bool, retrievedAt: Date?) -> Bool {
+        hasName && retrievedAt != nil
+    }
 }
 
 enum LocationAgePolicy {
@@ -123,8 +129,14 @@ extension RadioStore {
 
     /// A world globe is used until reverse geocoding can identify a country.
     var locationFlag: String {
-        guard locationName != nil,
-              let code = locationCountryCode,
+        let rawLocation = settings.locationSource == .manual
+            ? (settings.manualCity ?? locationName)
+            : locationName
+        let countryCode = settings.locationSource == .manual
+            ? (settings.manualCountryCode ?? (settings.manualCity == nil ? locationCountryCode : nil))
+            : locationCountryCode
+        guard rawLocation != nil,
+              let code = countryCode,
               code.count == 2 else { return "🌍" }
         let scalars = code.uppercased().unicodeScalars.compactMap { UnicodeScalar(127397 + $0.value) }
         return scalars.count == 2 ? String(String.UnicodeScalarView(scalars)) : "🌍"
@@ -408,7 +420,11 @@ extension RadioStore {
             thresholdKm: Self.locationRefreshThresholdKm
         )
         guard movedEnough else {
-            let nameIsCurrent = hasLocationName
+            let hasSuccessfulGeocode = LocationNamePolicy.hasSuccessfulGeocode(
+                hasName: hasLocationName,
+                retrievedAt: locationRetrievedAt
+            )
+            let nameIsCurrent = hasSuccessfulGeocode
                 && !isLocationNameOutdated
                 && !isLocationNameStale
             // No station or coordinate change, but a failed city lookup must
@@ -458,9 +474,16 @@ extension RadioStore {
               !isResolvingLocationName,
               let coordinate = locationCoordinate else { return }
         let hasName = hasResolvedLocationName
+        let retrievedAt = settings.locationSource == .manual
+            ? settings.manualCityGeocodedAt
+            : locationRetrievedAt
+        let hasSuccessfulGeocode = LocationNamePolicy.hasSuccessfulGeocode(
+            hasName: hasName,
+            retrievedAt: retrievedAt
+        )
         let needsLookup = isLocationNameStale
             || LocationNamePolicy.shouldRetryLookup(
-                hasName: hasName && !isLocationNameOutdated,
+                hasName: hasSuccessfulGeocode && !isLocationNameOutdated,
                 isResolving: isResolvingLocationName,
                 isRetryAllowed: isNameLookupRetryAllowed,
                 appIsActive: isAppActive
@@ -769,7 +792,11 @@ extension RadioStore {
 
         let coordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
         locationCoordinate = coordinate
-        if settings.manualCity == nil && locationName == nil {
+        if let manualCity = settings.manualCity {
+            locationName = manualCity
+            locationCountryCode = settings.manualCountryCode
+            locationRetrievedAt = settings.manualCityGeocodedAt
+        } else if locationName == nil {
             locationName = lastAutomaticLocationName
             locationCountryCode = lastAutomaticLocationCountryCode
             locationRetrievedAt = lastAutomaticLocationRetrievedAt
@@ -848,20 +875,28 @@ extension RadioStore {
             let keepsLastKnownName = result.name == nil
                 && keepsCurrentName
                 && self.hasResolvedLocationName
+            let previousName = saveManualCity
+                ? (self.settings.manualCity ?? self.locationName)
+                : self.locationName
+            let previousCountryCode = saveManualCity
+                ? (self.settings.manualCountryCode ?? self.locationCountryCode)
+                : self.locationCountryCode
+            let resolvedCountryCode = result.countryCode
+                ?? (result.name == nil || result.name == previousName ? previousCountryCode : nil)
             let retrievedAt = Date()
+            self.locationCountryCode = resolvedCountryCode
             if keepsLastKnownName {
                 self.isLocationNameOutdated = true
             } else {
                 self.isLocationNameOutdated = false
                 self.locationName = result.name
-                self.locationCountryCode = result.countryCode
                 self.locationRetrievedAt = result.name == nil ? nil : retrievedAt
             }
             self.isResolvingLocationName = false
             self.reverseGeocodingTask = nil
             if self.settings.locationSource == .gps, !keepsLastKnownName {
                 self.lastAutomaticLocationName = result.name
-                self.lastAutomaticLocationCountryCode = result.countryCode
+                self.lastAutomaticLocationCountryCode = resolvedCountryCode
                 self.lastAutomaticLocationRetrievedAt = self.locationRetrievedAt
                 if !saveManualCity, let name = result.name {
                     // Saved together with the position this name was resolved
@@ -869,15 +904,18 @@ extension RadioStore {
                     SavedLocationStorage.save(SavedLocation(
                         coordinate: location.coordinate,
                         name: name,
-                        countryCode: result.countryCode,
+                        countryCode: resolvedCountryCode,
                         retrievedAt: retrievedAt
                     ))
                 }
             }
-            if saveManualCity, let name = result.name {
+            if saveManualCity {
                 var value = self.settings
-                value.manualCity = name
-                value.manualCityGeocodedAt = retrievedAt
+                if let name = result.name {
+                    value.manualCity = name
+                    value.manualCityGeocodedAt = retrievedAt
+                }
+                value.manualCountryCode = resolvedCountryCode
                 self.settings = value
             }
         }
