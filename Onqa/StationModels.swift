@@ -104,7 +104,7 @@ struct AppSettings: Codable, Equatable {
     var manualLongitude: Double?
     var manualCity: String?
     /// Timestamp of the last successful reverse geocode for the cached manual city.
-    var manualLocationRetrievedAt: Date?
+    var manualCityGeocodedAt: Date?
     var catalogUpdateFrequency: CatalogUpdateFrequency = .weekly
     var lastCatalogUpdate: Date?
     /// ETag of the installed catalog, used for conditional (If-None-Match) updates.
@@ -126,7 +126,7 @@ struct AppSettings: Codable, Equatable {
         manualLatitude = try c.decodeIfPresent(Double.self, forKey: .manualLatitude)
         manualLongitude = try c.decodeIfPresent(Double.self, forKey: .manualLongitude)
         manualCity = try c.decodeIfPresent(String.self, forKey: .manualCity)
-        manualLocationRetrievedAt = try c.decodeIfPresent(Date.self, forKey: .manualLocationRetrievedAt)
+        manualCityGeocodedAt = try c.decodeIfPresent(Date.self, forKey: .manualCityGeocodedAt)
         catalogUpdateFrequency = try c.decodeIfPresent(CatalogUpdateFrequency.self, forKey: .catalogUpdateFrequency) ?? .weekly
         lastCatalogUpdate = try c.decodeIfPresent(Date.self, forKey: .lastCatalogUpdate)
         catalogETag = try c.decodeIfPresent(String.self, forKey: .catalogETag)
