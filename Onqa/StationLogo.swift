@@ -37,9 +37,9 @@ struct StationLogo: View {
                 guard !Task.isCancelled else { return }
 
                 if let svg = StationLogoFormat.svgData(from: data) {
-                    // Convert SVG into a bitmap before it enters a recycled
-                    // station card. A live WKWebView inside a Button can
-                    // intermittently remain blank during search/list updates.
+                     
+                     
+                     
                     let rendered = await StationImageCache.shared.renderedSVG(for: logoURL, data: svg)
                     guard !Task.isCancelled else { return }
                     image = rendered
@@ -51,7 +51,7 @@ struct StationLogo: View {
                     image = thumb
                 }
             } catch {
-                // Logos are optional; keep the station placeholder on failure.
+                 
             }
         }
     }
