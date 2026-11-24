@@ -103,6 +103,8 @@ struct AppSettings: Codable, Equatable {
     var manualLatitude: Double?
     var manualLongitude: Double?
     var manualCity: String?
+    /// Country code returned by the last successful reverse geocode for the manual city.
+    var manualCountryCode: String?
     /// Timestamp of the last successful reverse geocode for the cached manual city.
     var manualCityGeocodedAt: Date?
     var catalogUpdateFrequency: CatalogUpdateFrequency = .weekly
@@ -126,6 +128,7 @@ struct AppSettings: Codable, Equatable {
         manualLatitude = try c.decodeIfPresent(Double.self, forKey: .manualLatitude)
         manualLongitude = try c.decodeIfPresent(Double.self, forKey: .manualLongitude)
         manualCity = try c.decodeIfPresent(String.self, forKey: .manualCity)
+        manualCountryCode = try c.decodeIfPresent(String.self, forKey: .manualCountryCode)
         manualCityGeocodedAt = try c.decodeIfPresent(Date.self, forKey: .manualCityGeocodedAt)
         catalogUpdateFrequency = try c.decodeIfPresent(CatalogUpdateFrequency.self, forKey: .catalogUpdateFrequency) ?? .weekly
         lastCatalogUpdate = try c.decodeIfPresent(Date.self, forKey: .lastCatalogUpdate)
