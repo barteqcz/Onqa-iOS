@@ -805,6 +805,7 @@ extension RadioStore {
             || settings.manualLongitude != coordinate.longitude
         if manualCoordinateChanged {
             resetNameLookupBackoff(for: .manual)
+            setLocationNameStale(true, for: .manual)
         }
         var value = settings
         value.locationSource = .manual
