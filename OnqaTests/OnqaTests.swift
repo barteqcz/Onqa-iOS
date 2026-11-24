@@ -482,7 +482,7 @@ struct OnqaTests {
         settings.locationSource = .manual
         settings.manualLatitude = 52.2
         settings.manualLongitude = 21.0
-        settings.manualLocationRetrievedAt = Date(timeIntervalSince1970: 1_800_000_000)
+        settings.manualCityGeocodedAt = Date(timeIntervalSince1970: 1_800_000_000)
         settings.catalogETag = "\"abc\""
         let data = try JSONEncoder().encode(settings)
         #expect(try JSONDecoder().decode(AppSettings.self, from: data) == settings)
@@ -701,7 +701,7 @@ final class RadioStoreTests {
         settings.manualLatitude = 50.29
         settings.manualLongitude = 18.67
         settings.manualCity = "Gliwice"
-        settings.manualLocationRetrievedAt = Date().addingTimeInterval(-600)
+        settings.manualCityGeocodedAt = Date().addingTimeInterval(-600)
         store.settings = settings
 
         #expect(store.locationAgeText() != nil)
