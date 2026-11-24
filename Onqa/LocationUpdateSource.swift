@@ -1,12 +1,12 @@
 import Foundation
 import CoreLocation
 
-/// How a failed location request affects tracking.
+ 
 enum LocationErrorPolicy {
     enum Action: Equatable {
-        /// Core Location keeps trying on its own and delivers a fix when it can.
+         
         case keepTrying
-        /// Updates have ended; tracking has to be started again later.
+         
         case stopTracking
     }
 
@@ -33,8 +33,8 @@ enum LocationUpdateTimingPolicy {
     }
 }
 
-/// A fix reduced to plain values, so it can cross from the Core Location
-/// delegate callback to the main actor without sharing a reference type.
+ 
+ 
 private struct LocationSample: Sendable {
     let latitude: Double
     let longitude: Double
@@ -59,23 +59,23 @@ private struct LocationSample: Sendable {
     }
 }
 
-/// Battery-friendly location source backed by `CLLocationManager`.
-///
-/// `CLLocationUpdate.liveUpdates` accepts neither a desired accuracy nor a
-/// distance filter, so the system may keep the GPS powered and wake the app
-/// every few seconds while someone drives, even though the app only reacts to
-/// about 1 km of movement. `CLLocationManager` lets the app ask for what it
-/// needs: a coarse fix (the system can use Wi-Fi and cell towers instead of
-/// the GPS), delivered only after the device has moved the filter distance.
-/// This mirrors the Android app's `PRIORITY_BALANCED_POWER_ACCURACY` request
-/// with a 1000 m minimum distance.
-///
-/// Authorization is still requested through the app's `CLServiceSession`, and
-/// background delivery is still kept alive by its `CLBackgroundActivitySession`;
-/// this type only receives the fixes.
-///
-/// Create it on the main actor: Core Location delivers delegate callbacks on
-/// the thread the manager was created on.
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
 @MainActor
 final class LocationUpdateSource: NSObject, CLLocationManagerDelegate {
     static let desiredAccuracy = LocationRequestConfiguration.desiredAccuracy
@@ -93,11 +93,11 @@ final class LocationUpdateSource: NSObject, CLLocationManagerDelegate {
         manager.delegate = self
         manager.desiredAccuracy = LocationRequestConfiguration.desiredAccuracy
         manager.distanceFilter = LocationRequestConfiguration.minimumDistance
-        // Playback keeps the app running while updates matter. Automatic
-        // pausing can stop delivery at a red light and not resume reliably.
+         
+         
         manager.pausesLocationUpdatesAutomatically = false
-        // Requires the `location` background mode, which the app declares.
-        // The background activity session keeps When In Use access alive.
+         
+         
         manager.allowsBackgroundLocationUpdates = true
         manager.startUpdatingLocation()
     }
@@ -111,14 +111,14 @@ final class LocationUpdateSource: NSObject, CLLocationManagerDelegate {
         onFailure = nil
     }
 
-    // MARK: CLLocationManagerDelegate
+     
 
     nonisolated func locationManager(
         _ manager: CLLocationManager,
         didUpdateLocations locations: [CLLocation]
     ) {
-        // The app reacts to where the device is, not to the path it took, so
-        // only the newest fix of a batch matters.
+         
+         
         guard let latest = locations.last else { return }
         let sample = LocationSample(latest)
         Task { @MainActor [weak self] in
