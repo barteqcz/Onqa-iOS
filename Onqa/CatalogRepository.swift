@@ -8,14 +8,14 @@ extension RadioStore {
         let wasAvailable = isNetworkAvailable
         isNetworkAvailable = isAvailable
         guard isAvailable && !wasAvailable else { return }
-        // A dropped stream may only be marked as buffering by AVPlayer;
-        // it does not always emit a failure or enter the reconnect state.
-        // retryNow() checks the active player's state and safely ignores idle/
-        // healthy playback.
+         
+         
+         
+         
         player.retryNow()
         retryLocationNameAfterReconnect()
-        // The first launch is waiting for a connection to download the
-        // catalog: start as soon as one is back.
+         
+         
         if catalogStatus == .offline {
             refreshStations()
         }
@@ -40,7 +40,7 @@ extension RadioStore {
     }
 
     func loadStations(at coordinate: CLLocationCoordinate2D) async {
-        // Keep only the newest location if another lookup is already in progress.
+         
         if isLoading {
             pendingStationCoordinate = coordinate
             return
@@ -65,8 +65,8 @@ extension RadioStore {
                 try CatalogRepository.queryCatalog(path: database.path, latitude: latitude, longitude: longitude)
             }.value
 
-            // A newer location arrived while the database query was running.
-            // Ignore this stale result; the queued lookup will replace it.
+             
+             
             guard pendingStationCoordinate == nil,
                   settings.locationSource == sourceAtRequest else { return }
 
@@ -78,15 +78,15 @@ extension RadioStore {
             }
             rebuildStations()
             if stations.isEmpty {
-                // Also clear a paused station, so its mini-player and bottom fade
-                // disappear when the selected location has no stations.
+                 
+                 
                 player.stop()
             } else {
                 checkCoverageAndSwitch()
             }
         } catch {
             Log.catalog.error("Loading stations failed: \(error.localizedDescription, privacy: .public)")
-            // The offline card already explains this, so no extra banner.
+             
             if catalogStatus != .offline {
                 errorMessage = error.localizedDescription
             }
@@ -116,18 +116,18 @@ extension RadioStore {
         didCheckCatalogForUpdateThisLaunch = true
 
         if isLaunchCheck, FileManager.default.fileExists(atPath: url.path) {
-            // Catalogs installed by earlier builds were not marked. Applying the
-            // flag is idempotent, so do it once per launch off the main thread.
+             
+             
             Task.detached(priority: .utility) { CatalogRepository.excludeFromBackup(url) }
         }
 
         if !FileManager.default.fileExists(atPath: url.path) {
-            // First launch: there is nothing to show until the catalog is here.
+             
             try await downloadCatalogReportingStatus(isRequired: true)
         } else if isLaunchCheck && isCatalogUpdateDue {
-            // Do not hold the first station query behind a scheduled network
-            // refresh. Use the installed database immediately, then reload
-            // stations after the replacement has been validated and installed.
+             
+             
+             
             Task { [weak self] in
                 guard let self else { return }
                 let updated = await self.refreshCatalogIgnoringFailure()
@@ -144,10 +144,10 @@ extension RadioStore {
         return Date().timeIntervalSince(lastUpdate) >= interval
     }
 
-    /// A failed scheduled update must not block using the catalog already on
-    /// disk. It is skipped (for example when offline) and, because the last
-    /// update time is only recorded on success, tried again on the next launch.
-    /// The failure is logged so it can be diagnosed.
+     
+     
+     
+     
     func refreshCatalogIgnoringFailure() async -> Bool {
         do {
             try await downloadCatalogReportingStatus(isRequired: false)
@@ -158,9 +158,9 @@ extension RadioStore {
         }
     }
 
-    /// Downloads the catalog while publishing `catalogStatus` for the home
-    /// screen. When `isRequired` (no catalog on disk yet), a missing connection
-    /// becomes the "no internet" status instead of failing silently.
+     
+     
+     
     func downloadCatalogReportingStatus(isRequired: Bool) async throws {
         guard isNetworkAvailable else {
             if isRequired { catalogStatus = .offline }
@@ -178,8 +178,8 @@ extension RadioStore {
         }
     }
 
-    /// Coalesce scheduled and user-requested downloads so they cannot race
-    /// while writing the same temporary replacement file.
+     
+     
     func downloadCatalog() async throws {
         if let catalogDownloadTask {
             try await catalogDownloadTask.value
@@ -204,7 +204,7 @@ extension RadioStore {
         let destination = CatalogRepository.databaseFileURL()
         var request = URLRequest(url: Self.catalogURL)
         request.timeoutInterval = 30
-        // Ask the server to skip the body when the installed catalog is current.
+         
         if let etag = settings.catalogETag, FileManager.default.fileExists(atPath: destination.path) {
             request.setValue(etag, forHTTPHeaderField: "If-None-Match")
         }
@@ -221,13 +221,13 @@ extension RadioStore {
             throw CatalogError.http(http.statusCode)
         }
 
-        // Validate and copy the database away from the main thread.
+         
         try await Task.detached(priority: .utility) {
             try CatalogRepository.installCatalog(from: temporaryURL, to: destination)
         }.value
 
         Log.catalog.info("Catalog updated")
-        // Cached automatic station distances belong to the previous database.
+         
         lastAutomaticCatalogStations = nil
         lastAutomaticCatalogCoordinate = nil
         recordCatalogUpdate(etag: http?.value(forHTTPHeaderField: "ETag"))
@@ -243,7 +243,7 @@ extension RadioStore {
 }
 
 enum CatalogRepository {
-    /// Validates the downloaded database and atomically replaces the installed one.
+     
     static func installCatalog(from temporaryURL: URL, to destination: URL) throws {
         try FileManager.default.createDirectory(
             at: destination.deletingLastPathComponent(),
@@ -264,9 +264,9 @@ enum CatalogRepository {
         excludeFromBackup(destination)
     }
 
-    /// The catalog can be downloaded again at any time, so it must not count
-    /// toward the user's iCloud or device backup (iOS Data Storage Guidelines,
-    /// App Review Guideline 2.23). Failure is logged, never fatal.
+     
+     
+     
     static func excludeFromBackup(_ url: URL) {
         var url = url
         var values = URLResourceValues()
@@ -303,9 +303,9 @@ enum CatalogRepository {
             throw CatalogError.invalidDatabase
         }
 
-        // Validate every column used by the station query before replacing a
-        // working catalog. Table-name-only checks allow incompatible databases
-        // to pass validation and fail later when the app tries to read them.
+         
+         
+         
         let requiredColumns: [String: Set<String>] = [
             "stations": ["id", "name", "stream_url", "stream_url_hq", "logo", "network"],
             "transmitters": ["id", "name", "latitude", "longitude"],
@@ -366,8 +366,8 @@ enum CatalogRepository {
         }
         defer { sqlite3_finalize(statement) }
 
-        // One origin for every row, instead of allocating two CLLocation
-        // objects per row. The distance values are identical.
+         
+         
         let origin = CLLocation(latitude: latitude, longitude: longitude)
 
         var result: [RadioStation] = []
@@ -415,12 +415,12 @@ enum CatalogRepository {
     }
 }
 
-/// What the home screen shows in place of the station list while the catalog
-/// downloads.
+ 
+ 
 enum CatalogStatus: Equatable {
-    /// The catalog is being downloaded.
+     
     case downloading
-    /// The first launch needs to download the catalog but there is no internet.
+     
     case offline
 }
 
@@ -430,7 +430,7 @@ enum CatalogError: LocalizedError {
     case invalidDatabase
     case queryFailed
 
-    /// True when `error` means the device could not reach the network at all.
+     
     static func isOffline(_ error: Error) -> Bool {
         if let catalogError = error as? CatalogError, case .offline = catalogError {
             return true
