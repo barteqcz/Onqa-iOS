@@ -105,6 +105,47 @@ struct ReliabilityTests {
         ))
     }
 
+    @Test func automaticAndManualRetryBackoffAreIndependent() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        var automatic = LocationNameRetryState()
+        var manual = LocationNameRetryState()
+
+        automatic.recordFailure(at: now)
+        #expect(automatic.failureCount == 1)
+        #expect(automatic.nextRetryAt == now.addingTimeInterval(5))
+        #expect(manual.failureCount == 0)
+        #expect(manual.nextRetryAt == nil)
+
+        manual.recordFailure(at: now.addingTimeInterval(10))
+        manual.recordFailure(at: now.addingTimeInterval(20))
+        #expect(manual.failureCount == 2)
+        #expect(manual.nextRetryAt == now.addingTimeInterval(30))
+        #expect(automatic.failureCount == 1)
+        #expect(automatic.nextRetryAt == now.addingTimeInterval(5))
+
+        #expect(automatic.isRetryAllowed(at: now.addingTimeInterval(6)))
+        #expect(!manual.isRetryAllowed(at: now.addingTimeInterval(6)))
+        #expect(manual.isRetryAllowed(at: now.addingTimeInterval(30)))
+
+        automatic.resetBackoff()
+        #expect(automatic.failureCount == 0)
+        #expect(automatic.nextRetryAt == nil)
+        #expect(manual.failureCount == 2)
+        #expect(manual.nextRetryAt == now.addingTimeInterval(30))
+    }
+
+    @Test func staleAndFailedGeocodeFlagsRemainPerMode() {
+        var automatic = LocationNameRetryState()
+        let manual = LocationNameRetryState()
+        automatic.isNameOutdated = true
+        automatic.isStale = true
+
+        #expect(automatic.isNameOutdated)
+        #expect(automatic.isStale)
+        #expect(!manual.isNameOutdated)
+        #expect(!manual.isStale)
+    }
+
     // MARK: Fix quality
 
     @Test func onlyInvalidFixesAreRejected() {
