@@ -672,6 +672,7 @@ final class RadioStoreTests {
         #expect(!store.isLocationPending)
         #expect(store.locationLabel == "Gliwice")
         #expect(store.locationCountryCode == "PL")
+        #expect(store.locationFlag == "🇵🇱")
     }
 
     @Test func savedLocationRestoresItsRetrievalTime() {
