@@ -3,7 +3,7 @@ import MapKit
 import UIKit
 import Observation
 
-// MARK: - Onboarding
+ 
 
 struct OnboardingView: View {
     let store: RadioStore
@@ -25,7 +25,7 @@ struct OnboardingView: View {
             let artworkSize = min(172, max(124, geometry.size.height * 0.22))
 
             VStack(spacing: 0) {
-                // Keep the app identity anchored at the top of the screen.
+                 
                 VStack(spacing: 0) {
                     Image("OnboardingAppIcon")
                         .resizable()
@@ -46,14 +46,14 @@ struct OnboardingView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.top, isTight ? 2 : 8)
 
-                // Equal flexible space above and below keeps this action in the
-                // visual centre between the header and the bottom action area.
+                 
+                 
                 Spacer(minLength: isTight ? 12 : 24)
 
                 Button {
                     if store.needsLocationSettings {
-                        // iOS only presents the permission alert once. After a
-                        // denial, the app's Settings page is the supported path.
+                         
+                         
                         if let url = URL(string: UIApplication.openSettingsURLString) {
                             openURL(url)
                         }
@@ -89,7 +89,7 @@ struct OnboardingView: View {
 
                 Spacer(minLength: isTight ? 12 : 24)
 
-                // Keep the single relevant completion action at the bottom.
+                 
                 if hasLocationAccess {
                     Button {
                         store.completeOnboarding()
@@ -100,7 +100,7 @@ struct OnboardingView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, isTight ? 13 : (isCompact ? 15 : 18))
                             .onqaAccentCapsule(accent)
-                            // Make the full visible capsule tappable.
+                             
                             .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
