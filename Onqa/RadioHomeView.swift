@@ -119,16 +119,15 @@ struct RadioHomeView: View {
     private static let stationMinimumWidth: CGFloat = 320
     private static let stationContentHorizontalInset: CGFloat = 16
 
-    private func stationColumns(for availableWidth: CGFloat) -> [GridItem] {
-        let spacing = Self.stationSpacing
-        let count = max(
-            1,
-            Int((availableWidth + spacing) / (Self.stationMinimumWidth + spacing))
-        )
-        return Array(
-            repeating: GridItem(.flexible(), spacing: spacing, alignment: .top),
-            count: count
-        )
+    // Let LazyVGrid recalculate its adaptive columns from the current width after rotation.
+    private var stationColumns: [GridItem] {
+        [
+            GridItem(
+                .adaptive(minimum: Self.stationMinimumWidth),
+                spacing: Self.stationSpacing,
+                alignment: .top
+            )
+        ]
     }
 
     private var stationListTopInset: CGFloat {
@@ -199,12 +198,8 @@ struct RadioHomeView: View {
     }
 
     private var stationList: some View {
-        GeometryReader { geometry in
-            let gridWidth = max(0, geometry.size.width - Self.stationContentHorizontalInset * 2)
-            let columns = stationColumns(for: gridWidth)
-
-            ScrollViewReader { scrollProxy in
-                ScrollView {
+        ScrollViewReader { scrollProxy in
+            ScrollView {
                     VStack(spacing: Self.stationSpacing) {
 
                         if !store.isNetworkAvailable && presentedCatalogStatus != .offline {
@@ -227,13 +222,16 @@ struct RadioHomeView: View {
                             .transition(.move(edge: .top).combined(with: .opacity))
                         }
 
-                        stationContent(columns: columns)
+                        stationContent(columns: stationColumns)
                     }
 
                     .padding(.horizontal, Self.stationContentHorizontalInset)
+                    // Keep the scroll content tied to the viewport width, not to its widest child.
+                    .frame(maxWidth: .infinity, alignment: .top)
 
                     .id(Self.stationListBottomID)
                 }
+                .frame(maxWidth: .infinity)
 
                 .contentMargins(.top, stationListTopInset, for: .scrollContent)
                 .modifier(TopScrollEdgeEffect(hasLocationHeader: store.settings.showLocationHeader))
@@ -315,8 +313,6 @@ struct RadioHomeView: View {
                             scrollProxy.scrollTo(Self.stationListBottomID, anchor: .bottom)
                         }
                     }
-                }
-            }
         }
     }
 

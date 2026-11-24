@@ -85,18 +85,12 @@ private struct MiniPlayerSwipe: ViewModifier {
 
     func body(content: Content) -> some View {
         ZStack {
-
-            Color.clear
-                .frame(width: size.width, height: size.height)
-                .contentShape(Rectangle())
-                .onTapGesture {}
-
             content
                 .onGeometryChange(for: CGSize.self) { $0.size } action: { size = $0 }
                 .offset(x: offsetX)
                 .opacity(opacity)
         }
-
+        .contentShape(Rectangle())
         .simultaneousGesture(isEnabled ? swipe : nil)
         .onChange(of: isDragging) { _, dragging in
             if !dragging && phase == .idle && offsetX != 0 { springBack() }
@@ -193,39 +187,37 @@ struct MiniPlayerView: View {
         if let station = player.currentStation {
             let shape = RoundedRectangle(cornerRadius: 24, style: .continuous)
             HStack(spacing: 12) {
-                HStack(spacing: 12) {
-                    StationLogo(url: station.logoURL, size: 60, accent: accent)
-                        .accessibilityHidden(true)
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(spacing: 8) {
-                            Text(station.name)
-                                .font(.title3.weight(.bold))
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.75)
-                            if station.streamURLHQ?.isEmpty == false {
-                                HQBadge(color: accent)
-                            }
-                        }
-                        if player.isPlaying,
-                           let metadata = player.metadata?.trimmingCharacters(in: .whitespacesAndNewlines),
-                           !metadata.isEmpty {
-                            MiniPlayerMetadataView(text: metadata, color: accent)
-                                .id(metadata)
-                                .transition(
-                                    .asymmetric(
-                                        insertion: .move(edge: .bottom).combined(with: .opacity),
-                                        removal: .opacity
-                                    )
-                                )
+                StationLogo(url: station.logoURL, size: 60, accent: accent)
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text(station.name)
+                            .font(.title3.weight(.bold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
+                        if station.streamURLHQ?.isEmpty == false {
+                            HQBadge(color: accent)
                         }
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .clipped()
-                    .animation(.spring(response: 0.32, dampingFraction: 0.86), value: player.metadata)
-                    .animation(.easeInOut(duration: 0.18), value: player.isPlaying)
-                    Spacer(minLength: 0)
+                    if player.isPlaying,
+                       let metadata = player.metadata?.trimmingCharacters(in: .whitespacesAndNewlines),
+                       !metadata.isEmpty {
+                        MiniPlayerMetadataView(text: metadata, color: accent)
+                            .id(metadata)
+                            .transition(
+                                .asymmetric(
+                                    insertion: .move(edge: .bottom).combined(with: .opacity),
+                                    removal: .opacity
+                                )
+                            )
+                    }
                 }
+                // This is the flexible middle column; the logo and playback control retain fixed widths.
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .clipped()
+                .animation(.spring(response: 0.32, dampingFraction: 0.86), value: player.metadata)
+                .animation(.easeInOut(duration: 0.18), value: player.isPlaying)
 
                 if player.isReconnecting {
                     Button {
