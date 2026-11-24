@@ -3,7 +3,7 @@ import MapKit
 import UIKit
 import Observation
 
-/// Outlined "HQ" tag shown next to stations that offer a high-quality stream.
+ 
 struct HQBadge: View {
     let color: Color
 
@@ -20,8 +20,8 @@ struct HQBadge: View {
     }
 }
 
-/// Equalizer-style "now playing" indicator: each bar moves on its own rhythm.
-/// Heights are a pure function of time, so there is no animation state to manage.
+ 
+ 
 private struct PlayingBarsView: View {
     let color: Color
 
@@ -47,14 +47,14 @@ private struct PlayingBarsView: View {
 
     private func barHeight(_ index: Int, at t: TimeInterval) -> CGFloat {
         let angle = t * Self.speeds[index] + Self.phases[index]
-        // Two sines at unrelated rates keep the motion from looking periodic.
-        let level = (sin(angle) + sin(angle * 0.61 + 1.3)) / 4 + 0.5 // 0...1
+         
+        let level = (sin(angle) + sin(angle * 0.61 + 1.3)) / 4 + 0.5  
         return Self.maxHeight * (0.25 + 0.75 * level)
     }
 }
 
-/// A standalone station box. The button, context menu and accessibility
-/// actions are native SwiftUI controls; only the box's visual surface is custom.
+ 
+ 
 struct StationCardView: View {
     let station: RadioStation
     let isActive: Bool
