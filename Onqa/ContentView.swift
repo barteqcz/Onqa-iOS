@@ -22,6 +22,7 @@ extension OnqaAccent {
     var swiftUIColor: Color { Self.swiftUIColors[self] ?? .accentColor }
 }
 
+/// Selects onboarding or the main radio experience and applies the user's global appearance preferences.
 struct ContentView: View {
     let store: RadioStore
 

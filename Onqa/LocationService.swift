@@ -18,6 +18,7 @@ enum LocationPresentation {
     }
 }
 
+// Keep tracking decisions as pure rules so app lifecycle and playback behavior can be tested independently.
 enum LocationTrackingPolicy {
      
      
@@ -151,6 +152,7 @@ enum LocationAgePolicy {
     }
 }
 
+// Bridges Core Location, reverse geocoding, and manual/GPS selection into the app's observable state.
 extension RadioStore {
     var hasLocationAccess: Bool {
         locationAuthorizationStatus == .authorizedWhenInUse
@@ -459,6 +461,7 @@ extension RadioStore {
             .isEmpty == false
     }
 
+    // Ignore unusable or insignificant fixes; station refreshes and city-name lookups have separate lifecycles.
     func handleLocationFix(_ location: CLLocation) {
         guard settings.locationSource == .gps else { return }
         guard LocationFixQuality.isUsable(horizontalAccuracy: location.horizontalAccuracy) else { return }
@@ -599,6 +602,7 @@ extension RadioStore {
      
     private static let locationStopGracePeriod: Duration = .seconds(8)
 
+    // GPS tracking is needed while the app is active or audio is active; a short grace period smooths playback transitions.
     func configureLocationUpdates() {
         guard settings.locationSource == .gps else {
             cancelPendingLocationStop()
@@ -744,6 +748,7 @@ extension RadioStore {
      
      
      
+    // Keep the current station while it has a transmitter in range; otherwise choose the best in-range fallback.
     func checkCoverageAndSwitch() {
          
          
@@ -966,6 +971,7 @@ extension RadioStore {
         }
     }
 
+    // A monotonically increasing request ID prevents an older geocoding result from overwriting a newer location.
     func refreshLocationName(
         for location: CLLocation,
         saveManualCity: Bool,

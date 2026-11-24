@@ -2,6 +2,7 @@ import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
 
+/// Presents playback, appearance, location, and catalog preferences, plus saved-favorites tools.
 struct SettingsView: View {
     @Bindable var store: RadioStore
     @Environment(\.colorScheme) private var colorScheme

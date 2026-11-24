@@ -6,6 +6,7 @@ import Observation
  
 
  
+// A measured, looping ticker keeps long live-track titles readable without changing the mini-player layout.
 private struct MiniPlayerMetadataView: View {
     let text: String
     let color: Color
@@ -74,6 +75,7 @@ private struct MiniPlayerMetadataView: View {
  
  
  
+// Animate the current card out before changing stations, then bring the replacement card back into view.
 private struct MiniPlayerSwipe: ViewModifier {
     let isEnabled: Bool
     let onPrevious: () -> Void
@@ -200,6 +202,7 @@ private struct MiniPlayerSwipe: ViewModifier {
 
  
 
+/// Compact playback surface shared across the app, including track metadata and station-swipe controls.
 struct MiniPlayerView: View {
     let store: RadioStore
     let player: RadioAudioPlayer

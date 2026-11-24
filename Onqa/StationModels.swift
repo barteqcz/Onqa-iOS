@@ -93,6 +93,7 @@ enum CatalogUpdateFrequency: String, CaseIterable, Codable, Identifiable {
     }
 }
 
+/// Persisted user preferences. The custom decoder supplies defaults for keys added by newer app versions.
 struct AppSettings: Codable, Equatable {
     var onboardingCompleted = false
     var theme: OnqaTheme = .dark
@@ -117,6 +118,7 @@ struct AppSettings: Codable, Equatable {
      
      
      
+    // Decode each key independently so older settings files remain valid as new preferences are introduced.
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         onboardingCompleted = try c.decodeIfPresent(Bool.self, forKey: .onboardingCompleted) ?? false
@@ -136,6 +138,7 @@ struct AppSettings: Codable, Equatable {
     }
 }
 
+/// A station/transmitter entry from the local catalog, enriched with distance and favorite state for display.
 struct RadioStation: Identifiable, Hashable {
     var name: String
     var streamURL: String?
@@ -151,6 +154,7 @@ struct RadioStation: Identifiable, Hashable {
 
     var id: String { "\(name)|\(network ?? "")" }
 
+    // Prefer the selected quality, fall back to the other URL, and reject non-HTTP stream schemes.
     func streamURL(useHQ: Bool) -> URL? {
         let candidate = useHQ ? (streamURLHQ?.isEmpty == false ? streamURLHQ : streamURL) : (streamURL?.isEmpty == false ? streamURL : streamURLHQ)
         guard let candidate, let url = URL(string: candidate),

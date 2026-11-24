@@ -75,6 +75,7 @@ private struct TopScrollEdgeEffect: ViewModifier {
     }
 }
 
+/// Main listening screen: location context, station discovery, favorites, and the persistent mini-player.
 struct RadioHomeView: View {
     @Bindable var store: RadioStore
     @Environment(\.scenePhase) private var scenePhase

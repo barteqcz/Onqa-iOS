@@ -6,6 +6,7 @@ import Observation
 
 @MainActor
 @Observable
+/// Observable application coordinator for settings, stations, favorites, location, catalog loading, and playback.
 final class RadioStore {
     var settings: AppSettings {
         didSet {
@@ -234,6 +235,7 @@ extension RadioStore {
         playRelativeStation(direction: -1)
     }
 
+    // Wrap around at either end so next/previous always stays within the current station order.
     private func playRelativeStation(direction: Int) {
         guard !stations.isEmpty else { return }
         let currentIndex = stations.firstIndex(where: { $0.id == player.currentStation?.id }) ?? 0
@@ -271,6 +273,7 @@ extension RadioStore {
     /// Older app versions stored favorites as display names. Migrate each
     /// legacy name to all matching catalog identities once the catalog is
     /// available; this preserves the old behavior for previously saved data.
+    // Convert pre-identity favorites (saved by station name) to stable station IDs once catalog data is available.
     private func migrateLegacyFavoriteNamesIfNeeded() {
         let knownNames = Set(catalogStations.map(\.name))
         let legacyNames = favorites.intersection(knownNames)

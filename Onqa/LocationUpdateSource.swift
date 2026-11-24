@@ -35,6 +35,7 @@ enum LocationUpdateTimingPolicy {
 
  
  
+// Copy CLLocation into Sendable scalar values before hopping from the delegate callback to the main actor.
 private struct LocationSample: Sendable {
     let latitude: Double
     let longitude: Double
@@ -77,6 +78,7 @@ private struct LocationSample: Sendable {
  
  
 @MainActor
+/// Owns CLLocationManager and forwards rate-limited fixes, authorization changes, and failures to RadioStore.
 final class LocationUpdateSource: NSObject, CLLocationManagerDelegate {
     static let desiredAccuracy = LocationRequestConfiguration.desiredAccuracy
 

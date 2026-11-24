@@ -1,6 +1,7 @@
 import Foundation
 import CoreLocation
 
+// Pure location and ordering operations shared by station loading and location-change policies.
 enum StationProcessor {
     static func distanceKm(from latitude: Double, longitude: Double, to otherLatitude: Double, longitude otherLongitude: Double) -> Double {
         let origin = CLLocation(latitude: latitude, longitude: longitude)
@@ -35,6 +36,7 @@ enum StationProcessor {
         return hasMoved(atLeast: thresholdKm, from: previousCoordinate, to: coordinate)
     }
 
+    // Keep one nearest transmitter per station identity, discard out-of-coverage entries, then prioritize favorites.
     static func groupAndSort(_ allStations: [RadioStation], favorites: Set<String>) -> [RadioStation] {
         var representatives: [String: RadioStation] = [:]
         for station in allStations {

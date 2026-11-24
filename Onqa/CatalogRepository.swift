@@ -3,6 +3,7 @@ import CoreLocation
 import SQLite3
 import os
 
+// Coordinates catalog refreshes and downloads; the repository below owns the SQLite file itself.
 extension RadioStore {
     func handleNetworkChange(isAvailable: Bool) {
         let wasAvailable = isNetworkAvailable
@@ -93,6 +94,7 @@ extension RadioStore {
         }
     }
 
+    // Share catalog preparation so simultaneous callers do not trigger duplicate downloads.
     func ensureCatalogAvailable() async throws -> URL {
         if let catalogPreparationTask {
             return try await catalogPreparationTask.value
@@ -196,6 +198,7 @@ extension RadioStore {
         try await task.value
     }
 
+    // Use ETag validation to avoid needless downloads, then validate and replace the database as one install step.
     func performCatalogDownload() async throws {
         guard isNetworkAvailable else {
             throw CatalogError.offline
@@ -282,6 +285,7 @@ enum CatalogRepository {
         return base.appendingPathComponent("catalog.sqlite")
     }
 
+    // Check SQLite integrity and the columns the app expects before accepting a downloaded catalog.
     static func validateDatabase(at url: URL) throws {
         var database: OpaquePointer?
         let openResult = sqlite3_open_v2(url.path, &database, SQLITE_OPEN_READONLY, nil)

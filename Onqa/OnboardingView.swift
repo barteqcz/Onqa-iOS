@@ -5,6 +5,7 @@ import Observation
 
  
 
+/// Guides first launch through location permission, with a manual-location path when GPS access is unavailable.
 struct OnboardingView: View {
     let store: RadioStore
     @Environment(\.colorScheme) private var colorScheme

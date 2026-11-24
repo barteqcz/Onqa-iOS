@@ -5,6 +5,7 @@ import UIKit
  
  
  
+// Stream image bytes with a hard size limit so malformed or unexpectedly large logos cannot exhaust memory.
 enum BoundedLogoDownload {
     static func load(
         from url: URL,
@@ -40,6 +41,7 @@ enum BoundedLogoDownload {
 
  
  
+/// Deduplicates in-flight downloads/renders and caches decoded images behind a concurrency-safe interface.
 actor StationImageCache {
     static let shared = StationImageCache()
 
@@ -65,6 +67,7 @@ actor StationImageCache {
      
      
      
+    // Concurrent requests for the same URL await one shared task instead of downloading the same logo repeatedly.
     func data(for url: URL) async throws -> Data {
         let key = url.absoluteString
         if let existing = inFlight[key] {
@@ -133,6 +136,7 @@ actor StationImageCache {
 
      
      
+    // Limit expensive SVG rendering to two concurrent jobs and reuse both in-flight and completed results.
     func renderedSVG(for url: URL, data: Data) async -> UIImage? {
         let cacheKey = "\(url.absoluteString)@svg"
         let key = cacheKey as NSString

@@ -90,6 +90,7 @@ private struct MapPinTail: Shape {
     }
 }
 
+/// Lets the user choose a manual listening location by moving the map or searching for a city.
 struct MapLocationPickerView: View {
     let store: RadioStore
     @Environment(\.dismiss) private var dismiss

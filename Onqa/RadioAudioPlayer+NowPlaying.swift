@@ -11,6 +11,7 @@ import os
  
  
  
+// Normalize artwork to a predictable canvas and cap the rendered dimensions for system media surfaces.
 enum NowPlayingArtworkFactory {
     private static let maximumPixelSide = 512
     private static let boundsSize = CGSize(width: 512, height: 512)
@@ -101,6 +102,7 @@ enum NowPlayingArtworkFactory {
     }
 }
 
+// Keeps lock-screen metadata, artwork, and hardware/headset commands in sync with playback state.
 extension RadioAudioPlayer {
     nonisolated private static func addRemoteCommand(
         _ command: MPRemoteCommand,
@@ -137,6 +139,7 @@ extension RadioAudioPlayer {
         }
     }
 
+    // Artwork loads asynchronously, so verify the station identity before applying the result to the player.
     func loadArtwork(for station: RadioStation) {
         guard let text = station.logoURL, let url = URL(string: text) else { return }
         let stationID = station.id
@@ -182,6 +185,7 @@ extension RadioAudioPlayer {
         center.previousTrackCommand.isEnabled = canSkip
     }
 
+    // Publish a live-stream snapshot; the current track title becomes the title while the station remains the artist.
     func updateNowPlaying() {
         updateRemoteCommandAvailability()
         guard let station = currentStation else {

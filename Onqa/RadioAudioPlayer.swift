@@ -7,6 +7,8 @@ import UIKit
 
 @MainActor
 @Observable
+/// Main-actor owner of AVPlayer, audio-session lifecycle, stream metadata, and automatic recovery.
+/// `playbackRequestID` invalidates callbacks and tasks that belong to an older station request.
 final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     private(set) var currentStation: RadioStation?
     private(set) var isPlaying = false {
@@ -219,6 +221,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         pause()
     }
 
+    // AVPlayer status is the source of truth; during a station switch, hold the UI on buffering until the new item plays.
     private func updatePlaybackState() {
         if holdsSwitchUI {
              
@@ -278,6 +281,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         beginPlayback(station, useHQ: useHQ, preservingReconnectState: false)
     }
 
+    // Every new request supersedes previous observers, fades, and reconnect attempts via a fresh request ID.
     private func beginPlayback(
         _ station: RadioStation,
         useHQ: Bool,
@@ -362,6 +366,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         }
     }
 
+    // Retry the same station with bounded backoff, but only while this request is still the active one.
     private func scheduleReconnect(
         for station: RadioStation,
         useHQ: Bool,
@@ -555,6 +560,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         }
     }
 
+    // Build a fresh AVPlayerItem and attach status/metadata observers before starting the stream.
     private func startPlayback(
         _ station: RadioStation,
         url: URL,
@@ -670,6 +676,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         updateNowPlaying()
     }
 
+    // Fade out before releasing the current item so pauses and station changes do not click or pop.
     func pause() {
         playbackRequestID &+= 1
         let requestID = playbackRequestID
@@ -744,6 +751,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         }
     }
 
+    // Return false when cancelled or superseded so an obsolete fade cannot change the new stream's volume.
     private func rampVolume(
         to target: Float,
         steps: Int,
