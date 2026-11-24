@@ -165,7 +165,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         if wasActive, let station {
             beginPlayback(station, useHQ: useHQForCurrentStation, preservingReconnectState: false)
         } else {
-            updateNowPlaying()
         }
     }
 
@@ -203,7 +202,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
             } else {
                 isPlaying = false
                 isBuffering = true
-                updateNowPlaying()
                 return
             }
         }
@@ -224,8 +222,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
                 fadeInWhenReady(item, requestID: playbackRequestID)
             }
         }
-
-        updateNowPlaying()
     }
 
     private func fadeInWhenReady(_ item: AVPlayerItem, requestID: UInt64) {
@@ -283,8 +279,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
             metadataOutput = nil
             deactivateAudioSession()
             currentStation = station
-
-            stationArtwork = nil
+            stationArtworkData = nil
             loadArtwork(for: station)
             metadata = nil
             isPlaying = false
@@ -292,7 +287,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
             playbackError = true
             isReconnecting = true
             reconnectFailures += 1
-            updateNowPlaying()
             scheduleReconnect(for: station, useHQ: useHQ, requestID: requestID)
             return
         }
@@ -306,7 +300,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
 
         holdsSwitchUI = true
         currentStation = station
-        stationArtwork = nil
+            stationArtworkData = nil
         metadata = nil
         playbackError = false
         isBuffering = true
@@ -444,7 +438,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         playbackError = true
         isReconnecting = true
         reconnectFailures += 1
-        updateNowPlaying()
         scheduleReconnect(for: station, useHQ: useHQ, requestID: requestID)
     }
 
@@ -527,7 +520,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         itemStatusObservation = nil
         removeItemNotificationObservers()
         metadataOutput = nil
-        stationArtwork = nil
+            stationArtworkData = nil
         currentStation = station
         loadArtwork(for: station)
         metadata = nil
@@ -547,7 +540,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
             isBuffering = false
             isReconnecting = false
             playbackError = true
-            updateNowPlaying()
             return
         }
 
@@ -619,7 +611,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         player.replaceCurrentItem(with: item)
         player.play()
         activateNowPlayingSession()
-        updateNowPlaying()
     }
 
     // Fade out before releasing the current item so pauses and station changes do not click or pop.
@@ -643,7 +634,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
             isPlaying = false
             isBuffering = false
             scheduleAudioSessionDeactivation()
-            updateNowPlaying()
             return
         }
 
@@ -679,7 +669,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         isReconnecting = false
         volumeFadeTask = nil
         scheduleAudioSessionDeactivation()
-        updateNowPlaying()
     }
 
     private func fadeInVolume(for requestID: UInt64) {
@@ -736,7 +725,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         reconnectTask = nil
         isReconnecting = false
         reconnectFailures = 0
-        stationArtwork = nil
+            stationArtworkData = nil
         shouldFadeInWhenPlaybackStarts = false
         volumeFadeTask?.cancel()
         volumeFadeTask = nil
@@ -753,8 +742,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         isBuffering = false
         playbackError = false
         deactivateAudioSession()
-        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
-        updateRemoteCommandAvailability()
     }
 
     nonisolated func metadataOutput(
@@ -779,7 +766,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
 
         guard let current = metadataOutput, ObjectIdentifier(current) == source else { return }
         metadata = title
-        updateNowPlaying()
     }
 
     nonisolated private static func observeTimeControlStatus(
