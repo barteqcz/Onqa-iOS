@@ -81,9 +81,9 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     var stationArtworkData: Data?
     var stationArtwork: MPMediaItemArtwork?
     #if canImport(NowPlaying)
-    @available(iOS 27.0, *)
+    // Type-erased storage keeps the iOS 27-only framework type out of the Observation macro expansion.
     @ObservationIgnored
-    var nowPlayingSession: MediaSession<RadioAudioPlayer>?
+    var nowPlayingSessionStorage: AnyObject?
     #endif
     private var interruptionObserver: NSObjectProtocol?
     private var audioSessionIsActive = false
