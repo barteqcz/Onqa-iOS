@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-/// Colors modelled on the Android app's dark Material look, with light-mode counterparts.
+ 
 enum Palette {
     static func dynamic(dark: UInt32, light: UInt32) -> Color {
         Color(uiColor: UIColor { traits in
@@ -32,14 +32,14 @@ private func makeGlass(tint: Color?, interactive: Bool) -> Glass {
 }
 
 extension View {
-    /// Liquid Glass is the native surface style on the app's iOS 26 minimum.
+     
     func onqaGlass<S: Shape>(_ shape: S, tint: Color? = nil, interactive: Bool = false) -> some View {
         self.glassEffect(makeGlass(tint: tint, interactive: interactive), in: shape)
     }
 }
 
 extension View {
-    /// Primary call-to-action capsule using the native iOS 26 Liquid Glass surface.
+     
     func onqaAccentCapsule(_ accent: Color) -> some View {
         self.onqaGlass(Capsule(), tint: accent, interactive: true)
     }
