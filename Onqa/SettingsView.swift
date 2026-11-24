@@ -22,11 +22,11 @@ struct SettingsView: View {
             dataSection
             appearanceSection
         }
-        // Keep the Settings surface opaque over the fixed home-header layer.
+         
         .background(Palette.background.ignoresSafeArea())
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
-        // Keep the system-provided back button and navigation behavior.
+         
         .toolbar(.visible, for: .navigationBar)
         .alert("Location", isPresented: $store.shouldShowLocationSettingsPrompt) {
             Button("Settings") {
@@ -69,7 +69,7 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: Sections
+     
 
     private var locationSection: some View {
         Section {
@@ -89,8 +89,8 @@ struct SettingsView: View {
                 } label: {
                     VStack(alignment: .leading, spacing: 5) {
                         Text("Pick location on map")
-                        // Nothing is shown until a location has been picked;
-                        // afterwards the latest saved location appears here.
+                         
+                         
                         if store.settings.manualLatitude != nil {
                             Text(store.locationLabel)
                                 .font(.subheadline)
@@ -233,7 +233,7 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: Helpers
+     
 
     private var lastUpdatedText: String? {
         guard let date = store.settings.lastCatalogUpdate else { return nil }
