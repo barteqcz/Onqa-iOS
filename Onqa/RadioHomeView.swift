@@ -354,6 +354,7 @@ struct RadioHomeView: View {
                         shouldFollowBottomWhenMiniPlayerAppears
                     else { return }
 
+                    shouldFollowBottomWhenMiniPlayerAppears = false
                     Task { @MainActor in
                         // Wait for the safe-area inset to be laid out before
                         // aligning the content stack with the newly reduced viewport.
