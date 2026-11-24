@@ -1,12 +1,12 @@
 import Foundation
 import Compression
 
-/// Detects what a downloaded station logo really is. The URL extension is not
-/// trustworthy: many logo URLs have no extension, carry query strings, or serve
-/// SVG under another name, and `.svgz` files are gzip-compressed SVG.
+ 
+ 
+ 
 enum StationLogoFormat {
-    /// Returns plain SVG bytes if `data` is an SVG (optionally gzip-compressed),
-    /// otherwise nil so the caller decodes it as a raster image (PNG, JPEG, WebP, ...).
+     
+     
     static func svgData(from data: Data) -> Data? {
         var bytes = data
         if bytes.count > 2, bytes[bytes.startIndex] == 0x1f, bytes[bytes.startIndex + 1] == 0x8b {
@@ -26,7 +26,7 @@ enum StationLogoFormat {
         guard b.count > 18, b[0] == 0x1f, b[1] == 0x8b, b[2] == 8 else { return nil }
         let flags = b[3]
         let trailerStart = b.count - 8
-        // The three high bits are reserved by RFC 1952 and must be zero.
+         
         guard flags & 0xE0 == 0 else { return nil }
 
         var offset = 10
@@ -48,16 +48,16 @@ enum StationLogoFormat {
         }
         guard offset < trailerStart else { return nil }
 
-        // ISIZE is modulo 2^32, so it is only an early rejection hint. The
-        // streaming inflater below enforces the real output limit.
+         
+         
         let uncompressedSize = UInt32(b[b.count - 4])
             | (UInt32(b[b.count - 3]) << 8)
             | (UInt32(b[b.count - 2]) << 16)
             | (UInt32(b[b.count - 1]) << 24)
         guard uncompressedSize <= UInt32(maximumDecompressedBytes) else { return nil }
 
-        // Gzip wraps a raw DEFLATE payload. Stream it into a fixed-size buffer
-        // so an expansion bomb cannot allocate an unbounded decompressed Data.
+         
+         
         let deflated = Data(b[offset..<trailerStart])
         guard let inflated = inflateDeflate(
             deflated,
@@ -72,8 +72,8 @@ enum StationLogoFormat {
         let bufferSize = 64 * 1024
         let destination = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
         defer { destination.deallocate() }
-        // The C stream structure requires non-optional source and destination
-        // pointers even before any input has been assigned.
+         
+         
         let emptySource = UnsafeMutablePointer<UInt8>.allocate(capacity: 1)
         defer { emptySource.deallocate() }
 
@@ -118,8 +118,8 @@ enum StationLogoFormat {
                 case COMPRESSION_STATUS_END:
                     return output
                 case COMPRESSION_STATUS_OK:
-                    // With all input marked final, a no-progress result means
-                    // the stream is truncated or cannot be decoded further.
+                     
+                     
                     guard produced > 0 || stream.src_size > 0 else { return nil }
                 default:
                     return nil
