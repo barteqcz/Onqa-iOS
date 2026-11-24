@@ -244,31 +244,30 @@ struct RadioHomeView: View {
                 ScrollView {
                     VStack(spacing: 0) {
                         VStack(spacing: Self.stationSpacing) {
-                        // The offline card already explains the state, so avoid
-                        // showing a duplicate banner above it.
-                        if !store.isNetworkAvailable && presentedCatalogStatus != .offline {
-                            StatusBanner(
-                                message: String(localized: "No internet connection"),
-                                systemImage: "wifi.slash",
-                                tint: .orange
-                            )
-                            .transition(.move(edge: .top).combined(with: .opacity))
-                        }
+                            // The offline card already explains the state, so avoid
+                            // showing a duplicate banner above it.
+                            if !store.isNetworkAvailable && presentedCatalogStatus != .offline {
+                                StatusBanner(
+                                    message: String(localized: "No internet connection"),
+                                    systemImage: "wifi.slash",
+                                    tint: .orange
+                                )
+                                .transition(.move(edge: .top).combined(with: .opacity))
+                            }
 
-                        if let error = store.errorMessage {
-                            StatusBanner(
-                                message: error,
-                                systemImage: "exclamationmark.triangle",
-                                tint: .orange,
-                                actionTitle: String(localized: "Retry"),
-                                action: { store.refreshStations() }
-                            )
-                            .transition(.move(edge: .top).combined(with: .opacity))
-                        }
+                            if let error = store.errorMessage {
+                                StatusBanner(
+                                    message: error,
+                                    systemImage: "exclamationmark.triangle",
+                                    tint: .orange,
+                                    actionTitle: String(localized: "Retry"),
+                                    action: { store.refreshStations() }
+                                )
+                                .transition(.move(edge: .top).combined(with: .opacity))
+                            }
 
-                        stationContent(columns: columns)
-                    }
-                    .padding(.horizontal, Self.stationContentHorizontalInset)
+                            stationContent(columns: columns)
+                        }
 
                     // A zero-height target keeps the list's true bottom at the
                     // final card, without adding visual or scrollable padding.
