@@ -32,6 +32,7 @@ final class RadioStore {
                         locationCoordinate = coordinate
                         locationName = lastAutomaticLocationName
                         locationCountryCode = lastAutomaticLocationCountryCode
+                        locationRetrievedAt = lastAutomaticLocationRetrievedAt
 
                         if let cachedStations = lastAutomaticCatalogStations,
                            let cachedCoordinate = lastAutomaticCatalogCoordinate,
@@ -54,6 +55,7 @@ final class RadioStore {
                         locationCoordinate = nil
                         locationName = nil
                         locationCountryCode = nil
+                        locationRetrievedAt = nil
                     }
 
                 } else {
@@ -70,6 +72,13 @@ final class RadioStore {
     var locationCoordinate: CLLocationCoordinate2D?
     var locationName: String?
     var locationCountryCode: String?
+    /// When the automatic location name was last confirmed, shown as a
+    /// "minutes ago" counter next to it.
+    var locationRetrievedAt: Date?
+    /// True after a city lookup failed (offline, or no city at that point)
+    /// while an earlier name is still shown. The name is then kept, with its
+    /// counter running, and the lookup is retried.
+    @ObservationIgnored var isLocationNameOutdated = false
     /// True from the moment a reverse-geocode starts until it finishes, so the
     /// UI can tell "still looking up the name" apart from "no name found".
     var isResolvingLocationName = false
@@ -131,6 +140,7 @@ final class RadioStore {
     var lastAutomaticCoordinate: CLLocationCoordinate2D?
     var lastAutomaticLocationName: String?
     var lastAutomaticLocationCountryCode: String?
+    var lastAutomaticLocationRetrievedAt: Date?
     var lastAutomaticCatalogStations: [RadioStation]?
     var lastAutomaticCatalogCoordinate: CLLocationCoordinate2D?
 

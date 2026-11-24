@@ -672,6 +672,41 @@ final class RadioStoreTests {
         #expect(store.locationCountryCode == "PL")
     }
 
+    @Test func savedLocationRestoresItsRetrievalTime() {
+        let store = RadioStore()
+        var settings = store.settings
+        settings.locationSource = .gps
+        store.settings = settings
+        store.hasConfirmedOnboardingThisSession = true
+        let retrievedAt = Date().addingTimeInterval(-600)
+
+        store.restoreLastAutomaticLocation(SavedLocation(
+            coordinate: CLLocationCoordinate2D(latitude: 50.29, longitude: 18.67),
+            name: "Gliwice",
+            countryCode: "PL",
+            retrievedAt: retrievedAt
+        ))
+
+        // The last known city stays visible, with a counter beside it.
+        #expect(store.locationLabel == "Gliwice")
+        #expect(store.locationRetrievedAt == retrievedAt)
+        #expect(store.locationAgeText() != nil)
+    }
+
+    @Test func ageIsNotShownForManualLocation() {
+        let store = RadioStore()
+        var settings = store.settings
+        settings.locationSource = .manual
+        settings.manualLatitude = 50.29
+        settings.manualLongitude = 18.67
+        settings.manualCity = "Gliwice"
+        store.settings = settings
+        store.locationName = "Gliwice"
+        store.locationRetrievedAt = Date().addingTimeInterval(-600)
+
+        #expect(store.locationAgeText() == nil)
+    }
+
     @Test func savedLocationIsNotShownBeforeOnboardingIsConfirmed() {
         let store = RadioStore()
         var settings = store.settings

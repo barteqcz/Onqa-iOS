@@ -86,6 +86,23 @@ enum LocationNamePolicy {
     }
 }
 
+enum LocationAgePolicy {
+    /// Nothing is shown for a location confirmed less than a minute ago, so a
+    /// fresh location has no extra text next to it.
+    static let minimumAge: TimeInterval = 60
+
+    /// A localized relative age such as "5 min. ago". It is in minutes up to an
+    /// hour and in hours or days after that. Returns nil for a fresh location,
+    /// a missing timestamp or one in the future (the clock was changed).
+    static func text(since retrievedAt: Date?, now: Date = Date()) -> String? {
+        guard let retrievedAt,
+              now.timeIntervalSince(retrievedAt) >= minimumAge else { return nil }
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter.localizedString(for: retrievedAt, relativeTo: now)
+    }
+}
+
 extension RadioStore {
     var hasLocationAccess: Bool {
         locationAuthorizationStatus == .authorizedWhenInUse
@@ -154,6 +171,21 @@ extension RadioStore {
         }
         return String(localized: "Finding your location…")
     }
+
+    /// When the shown automatic location was last confirmed, or nil when it
+    /// has no age to show. Manual locations are chosen by the person and are
+    /// never retrieved.
+    var displayedLocationRetrievedAt: Date? {
+        guard settings.locationSource == .gps, locationName != nil else { return nil }
+        return locationRetrievedAt
+    }
+
+    /// How long ago the shown automatic location was confirmed, or nil when
+    /// nothing should be shown.
+    func locationAgeText(now: Date = Date()) -> String? {
+        LocationAgePolicy.text(since: displayedLocationRetrievedAt, now: now)
+    }
+
     func bootstrap() async {
         guard !didBootstrap else { return }
         didBootstrap = true
@@ -187,11 +219,13 @@ extension RadioStore {
         lastAutomaticCoordinate = saved.coordinate
         lastAutomaticLocationName = saved.name
         lastAutomaticLocationCountryCode = saved.countryCode
+        lastAutomaticLocationRetrievedAt = saved.retrievedAt
 
         guard settings.locationSource == .gps, hasConfirmedOnboardingThisSession else { return }
         locationCoordinate = saved.coordinate
         locationName = saved.name
         locationCountryCode = saved.countryCode
+        locationRetrievedAt = saved.retrievedAt
     }
 
     /// Manual mode may be selected before the user picks a point. Only fall
@@ -365,15 +399,29 @@ extension RadioStore {
             thresholdKm: Self.locationRefreshThresholdKm
         )
         guard movedEnough else {
+            let nameIsCurrent = hasLocationName
+                && !isLocationNameOutdated
+                && !isLocationNameStale
+            if nameIsCurrent {
+                // A fix within the threshold of the saved position confirms
+                // that the shown name still applies.
+                let now = Date()
+                locationRetrievedAt = now
+                lastAutomaticLocationRetrievedAt = now
+            }
             // No station or coordinate change, but a failed city lookup must
             // not stay failed until the next kilometre of movement.
             if LocationNamePolicy.shouldRetryLookup(
-                hasName: hasLocationName,
+                hasName: nameIsCurrent,
                 isResolving: isResolvingLocationName,
                 isRetryAllowed: isNameLookupRetryAllowed,
                 appIsActive: isAppActive
             ) {
-                refreshLocationName(for: location, saveManualCity: false)
+                refreshLocationName(
+                    for: location,
+                    saveManualCity: false,
+                    keepsCurrentName: hasLocationName
+                )
             }
             return
         }
@@ -411,7 +459,7 @@ extension RadioStore {
         let hasName = hasResolvedLocationName
         let needsLookup = isLocationNameStale
             || LocationNamePolicy.shouldRetryLookup(
-                hasName: hasName,
+                hasName: hasName && !isLocationNameOutdated,
                 isResolving: isResolvingLocationName,
                 isRetryAllowed: isNameLookupRetryAllowed,
                 appIsActive: isAppActive
@@ -447,6 +495,7 @@ extension RadioStore {
         if settings.locationSource == .gps && !hasLocationAccess {
             locationName = nil
             locationCountryCode = nil
+            locationRetrievedAt = nil
         }
     }
 
@@ -696,6 +745,7 @@ extension RadioStore {
             locationCoordinate = nil
             locationName = nil
             locationCountryCode = nil
+            locationRetrievedAt = nil
             if settings.manualCity != nil {
                 var value = settings
                 value.manualCity = nil
@@ -714,6 +764,7 @@ extension RadioStore {
 
         locationName = nil
         locationCountryCode = nil
+        locationRetrievedAt = nil
         let coordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
         locationCoordinate = coordinate
         refreshLocationName(
@@ -788,20 +839,36 @@ extension RadioStore {
                     self.resetNameLookupBackoff()
                 }
             }
-            self.locationName = result.name
-            self.locationCountryCode = result.countryCode
+            // A failed automatic lookup (offline, or no city found) keeps the
+            // last known name on screen; its counter shows how old it is. It
+            // is retried later, and is only dropped if there was none before.
+            let keepsLastKnownName = result.name == nil
+                && keepsCurrentName
+                && !saveManualCity
+                && self.locationName != nil
+            let retrievedAt = Date()
+            if keepsLastKnownName {
+                self.isLocationNameOutdated = true
+            } else {
+                self.isLocationNameOutdated = false
+                self.locationName = result.name
+                self.locationCountryCode = result.countryCode
+                self.locationRetrievedAt = result.name == nil ? nil : retrievedAt
+            }
             self.isResolvingLocationName = false
             self.reverseGeocodingTask = nil
-            if self.settings.locationSource == .gps {
+            if self.settings.locationSource == .gps, !keepsLastKnownName {
                 self.lastAutomaticLocationName = result.name
                 self.lastAutomaticLocationCountryCode = result.countryCode
+                self.lastAutomaticLocationRetrievedAt = self.locationRetrievedAt
                 if !saveManualCity, let name = result.name {
                     // Saved together with the position this name was resolved
                     // for, so the pair never goes out of sync.
                     SavedLocationStorage.save(SavedLocation(
                         coordinate: location.coordinate,
                         name: name,
-                        countryCode: result.countryCode
+                        countryCode: result.countryCode,
+                        retrievedAt: retrievedAt
                     ))
                 }
             }

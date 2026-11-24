@@ -129,6 +129,57 @@ struct ReliabilityTests {
         #expect(defaults.data(forKey: SavedLocationStorage.key) == nil)
     }
 
+    // MARK: Location age
+
+    @Test func savedLocationKeepsItsRetrievalTime() {
+        let defaults = isolatedDefaults()
+        let retrievedAt = Date(timeIntervalSince1970: 1_800_000_000)
+        let saved = SavedLocation(
+            coordinate: CLLocationCoordinate2D(latitude: 50.29, longitude: 18.67),
+            name: "Gliwice",
+            countryCode: "PL",
+            retrievedAt: retrievedAt
+        )
+
+        SavedLocationStorage.save(saved, to: defaults)
+
+        #expect(SavedLocationStorage.load(from: defaults)?.retrievedAt == retrievedAt)
+    }
+
+    @Test func savedLocationFromEarlierVersionStillLoads() throws {
+        // Data written before the retrieval time existed has no such key.
+        let defaults = isolatedDefaults()
+        let legacy = Data(#"{"latitude":50.29,"longitude":18.67,"name":"Gliwice","countryCode":"PL"}"#.utf8)
+        defaults.set(legacy, forKey: SavedLocationStorage.key)
+
+        let loaded = try #require(SavedLocationStorage.load(from: defaults))
+
+        #expect(loaded.name == "Gliwice")
+        #expect(loaded.retrievedAt == nil)
+    }
+
+    @Test func freshLocationShowsNoAge() {
+        let now = Date()
+        #expect(LocationAgePolicy.text(since: nil, now: now) == nil)
+        #expect(LocationAgePolicy.text(since: now, now: now) == nil)
+        #expect(LocationAgePolicy.text(since: now.addingTimeInterval(-59), now: now) == nil)
+    }
+
+    @Test func clockMovedBackShowsNoAge() {
+        let now = Date()
+        #expect(LocationAgePolicy.text(since: now.addingTimeInterval(600), now: now) == nil)
+    }
+
+    @Test func olderLocationShowsAge() {
+        let now = Date()
+        let fiveMinutes = LocationAgePolicy.text(since: now.addingTimeInterval(-300), now: now)
+        let twoHours = LocationAgePolicy.text(since: now.addingTimeInterval(-7_200), now: now)
+
+        // Wording is localized, but the number it counts in is not.
+        #expect(fiveMinutes?.contains("5") == true)
+        #expect(twoHours?.contains("2") == true)
+    }
+
     // MARK: Stream metadata
 
     @Test func onlyTrackTitleIdentifiersAreAccepted() {

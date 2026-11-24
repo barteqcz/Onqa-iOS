@@ -502,11 +502,29 @@ struct RadioHomeView: View {
                     .tint(accent)
                     .frame(height: headerRowHeight)
             } else {
-                Text(store.locationLabel)
-                    .font(.system(size: headerTitleSize, weight: .bold))
-                    .foregroundStyle(colorScheme == .light ? Color.black : Color.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.65)
+                // The store is read here, in the header's own body, so changes
+                // to it refresh the header at once. Only the age depends on
+                // the clock: it re-evaluates every 30 seconds, so the counter
+                // keeps running while the last known location stays on screen.
+                let label = store.locationLabel
+                let retrievedAt = store.displayedLocationRetrievedAt
+                TimelineView(.periodic(from: .now, by: 30)) { context in
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(label)
+                            .font(.system(size: headerTitleSize, weight: .bold))
+                            .foregroundStyle(colorScheme == .light ? Color.black : Color.white)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.65)
+                        if let age = LocationAgePolicy.text(since: retrievedAt, now: context.date) {
+                            // Fixed size, so a long city name shrinks first.
+                            Text(age)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .fixedSize(horizontal: true, vertical: false)
+                        }
+                    }
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .center)

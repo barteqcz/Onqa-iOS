@@ -13,12 +13,21 @@ struct SavedLocation: Codable, Equatable, Sendable {
     var longitude: Double
     var name: String
     var countryCode: String?
+    /// When the name was last confirmed for this position. Optional so data
+    /// saved by earlier versions, which has no such value, still loads.
+    var retrievedAt: Date?
 
-    init(coordinate: CLLocationCoordinate2D, name: String, countryCode: String?) {
+    init(
+        coordinate: CLLocationCoordinate2D,
+        name: String,
+        countryCode: String?,
+        retrievedAt: Date? = nil
+    ) {
         latitude = coordinate.latitude
         longitude = coordinate.longitude
         self.name = name
         self.countryCode = countryCode
+        self.retrievedAt = retrievedAt
     }
 
     var coordinate: CLLocationCoordinate2D {
