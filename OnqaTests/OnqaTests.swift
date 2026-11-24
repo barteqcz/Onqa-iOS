@@ -172,7 +172,7 @@ struct OnqaTests {
             appIsActive: true,
             hasActivePlayback: false
         ))
-        // Playing, buffering and reconnecting all count as active playback.
+         
         #expect(LocationTrackingPolicy.shouldTrack(
             source: .gps,
             hasLocationAccess: true,
@@ -370,7 +370,7 @@ struct OnqaTests {
         let result = StationProcessor.groupAndSort([unknownDistance, unknownCoverage], favorites: [])
 
         #expect(result.count == 2)
-        // A known distance sorts ahead of an unknown one.
+         
         #expect(result.first?.name == "No Coverage FM")
     }
 
@@ -399,7 +399,7 @@ struct OnqaTests {
     }
 
     @Test func gzipSVGWithOptionalExtraFieldIsDecoded() {
-        // Gzip FEXTRA is present, with a three-byte extra field before DEFLATE.
+         
         let compressed = Data(base64Encoded:
             "H4sIBAAAAAAA/wMAeHl6sykuS1eoyM3JK7ZVyigpKbDS1y8vL9crN9bLL0rXNzIwMNAHqlCysylKTS5RKM9MKcmwVTJUUshIzUzPKAEx9e1sQErsANOS1ClKAAAA"
         )!
@@ -418,14 +418,14 @@ struct OnqaTests {
         let deflated = try (svg as NSData).compressed(using: .zlib) as Data
         var gzip = Data([0x1f, 0x8b, 8, 0, 0, 0, 0, 0, 0, 3])
         gzip.append(deflated)
-        // Deliberately claim a one-byte expansion to prove the real output,
-        // rather than the modulo-2^32 trailer field, is what gets bounded.
+         
+         
         gzip.append(contentsOf: [0, 0, 0, 0, 1, 0, 0, 0])
 
         #expect(StationLogoFormat.svgData(from: gzip) == nil)
     }
 
-    // MARK: Distance formatting
+     
 
     @Test func distanceFormattingKilometersAndMiles() {
         let km = DistanceUnit.kilometers.formatted(kilometers: 12.4)
@@ -439,26 +439,26 @@ struct OnqaTests {
 
     @Test func distanceFormattingBelowOneUnitUsesLessThan() {
         #expect(DistanceUnit.kilometers.formatted(kilometers: 0.4).hasPrefix("< 1"))
-        // 1 km is under one mile.
+         
         #expect(DistanceUnit.miles.formatted(kilometers: 1).hasPrefix("< 1"))
     }
 
     @Test func distanceUnitFollowsTheSystemMeasurementSystem() {
         #expect(DistanceUnit(measurementSystem: .metric) == .kilometers)
         #expect(DistanceUnit(measurementSystem: .us) == .miles)
-        // UK roads are signed in miles.
+         
         #expect(DistanceUnit(measurementSystem: .uk) == .miles)
     }
 
     @Test func settingsSavedWithTheRetiredDistanceUnitKeyStillDecode() throws {
-        // Earlier builds persisted a user-selectable unit that is now automatic.
+         
         let json = #"{"onboardingCompleted":true,"distanceUnit":"miles","useHQStream":false}"#.data(using: .utf8)!
         let decoded = try JSONDecoder().decode(AppSettings.self, from: json)
         #expect(decoded.onboardingCompleted)
         #expect(!decoded.useHQStream)
     }
 
-    // MARK: Settings
+     
 
     @Test func catalogUpdateIntervals() {
         #expect(CatalogUpdateFrequency.manual.interval == nil)
@@ -468,7 +468,7 @@ struct OnqaTests {
     }
 
     @Test func settingsDecodeFromBeforeTheETagFieldExisted() throws {
-        // Settings saved by an older build have no catalogETag key.
+         
         let json = #"{"onboardingCompleted":true,"useHQStream":false}"#.data(using: .utf8)!
         let decoded = try JSONDecoder().decode(AppSettings.self, from: json)
         #expect(decoded.onboardingCompleted)
@@ -489,7 +489,7 @@ struct OnqaTests {
         #expect(try JSONDecoder().decode(AppSettings.self, from: data) == settings)
     }
 
-    // MARK: Catalog storage
+     
 
     @Test func downloadedCatalogIsExcludedFromBackup() throws {
         let url = FileManager.default.temporaryDirectory
@@ -503,7 +503,7 @@ struct OnqaTests {
         #expect(values.isExcludedFromBackup == true)
     }
 
-    // MARK: Catalog errors
+     
 
     @Test func offlineErrorsAreRecognised() {
         #expect(CatalogError.isOffline(CatalogError.offline))
@@ -550,12 +550,12 @@ private final class ObservationChangeFlag: @unchecked Sendable {
     }
 }
 
-/// Store behaviour that does not need location services or the network.
+ 
 @MainActor
 @Suite(.serialized)
 final class RadioStoreTests {
-    // Serialized: every test reads and writes the shared settings entry in
-    // UserDefaults. A fresh instance (init/deinit) wraps each test.
+     
+     
     private let savedSettings: Data?
     private let savedLastLocation: Data?
 
@@ -667,7 +667,7 @@ final class RadioStoreTests {
 
         store.restoreLastAutomaticLocation(savedGliwice)
 
-        // No wait for the first fix: the header and station list can render.
+         
         #expect(store.locationCoordinate != nil)
         #expect(!store.isLocationPending)
         #expect(store.locationLabel == "Gliwice")
@@ -690,7 +690,7 @@ final class RadioStoreTests {
             retrievedAt: retrievedAt
         ))
 
-        // The last known city stays visible, with a counter beside it.
+         
         #expect(store.locationLabel == "Gliwice")
         #expect(store.locationRetrievedAt == retrievedAt)
         #expect(store.locationAgeText() != nil)
@@ -731,7 +731,7 @@ final class RadioStoreTests {
 
         #expect(store.locationCoordinate == nil)
         #expect(store.locationName == nil)
-        // It is still kept, so switching to Auto later can restore it.
+         
         #expect(store.lastAutomaticLocationName == "Gliwice")
         #expect(store.lastAutomaticCoordinate != nil)
     }
