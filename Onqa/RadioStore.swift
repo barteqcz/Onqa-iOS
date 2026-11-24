@@ -78,7 +78,25 @@ final class RadioStore {
     /// True after a city lookup failed (offline, or no city at that point)
     /// while an earlier name is still shown. The name is then kept, with its
     /// counter running, and the lookup is retried.
-    @ObservationIgnored var isLocationNameOutdated = false
+    /// A failed city refresh is tracked independently for each location mode.
+    /// This keeps the age warning tied to the city currently being displayed.
+    var gpsLocationNameOutdated = false
+    var manualLocationNameOutdated = false
+
+    var isLocationNameOutdated: Bool {
+        get {
+            settings.locationSource == .manual
+                ? manualLocationNameOutdated
+                : gpsLocationNameOutdated
+        }
+        set {
+            if settings.locationSource == .manual {
+                manualLocationNameOutdated = newValue
+            } else {
+                gpsLocationNameOutdated = newValue
+            }
+        }
+    }
     /// True from the moment a reverse-geocode starts until it finishes, so the
     /// UI can tell "still looking up the name" apart from "no name found".
     var isResolvingLocationName = false
