@@ -200,119 +200,119 @@ struct RadioHomeView: View {
     private var stationList: some View {
         ScrollViewReader { scrollProxy in
             ScrollView {
-                    VStack(spacing: Self.stationSpacing) {
+                VStack(spacing: Self.stationSpacing) {
 
-                        if !store.isNetworkAvailable && presentedCatalogStatus != .offline {
-                            StatusBanner(
-                                message: String(localized: "No internet connection"),
-                                systemImage: "wifi.slash",
-                                tint: .orange
+                    if !store.isNetworkAvailable && presentedCatalogStatus != .offline {
+                        StatusBanner(
+                            message: String(localized: "No internet connection"),
+                            systemImage: "wifi.slash",
+                            tint: .orange
+                        )
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+
+                    if let error = store.errorMessage {
+                        StatusBanner(
+                            message: error,
+                            systemImage: "exclamationmark.triangle",
+                            tint: .orange,
+                            actionTitle: String(localized: "Retry"),
+                            action: { store.refreshStations() }
+                        )
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+
+                    stationContent(columns: stationColumns)
+                }
+
+                .padding(.horizontal, Self.stationContentHorizontalInset)
+                // Keep the scroll content tied to the viewport width, not to its widest child.
+                .frame(maxWidth: .infinity, alignment: .top)
+
+                .id(Self.stationListBottomID)
+            }
+            .frame(maxWidth: .infinity)
+
+            .contentMargins(.top, stationListTopInset, for: .scrollContent)
+            .modifier(TopScrollEdgeEffect(hasLocationHeader: store.settings.showLocationHeader))
+            .background {
+                if store.settings.showLocationHeader {
+                    Palette.background
+                } else {
+
+                    Color.clear
+                }
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                ZStack(alignment: .bottom) {
+
+                    Color.clear
+                        .frame(height: 0)
+                        .background(alignment: .bottom) {
+                            BottomEdgeFade(
+                                bottomInset: bottomSafeInset,
+                                playerDrop: Self.miniPlayerDrop,
+                                playerHeight: miniPlayerHeight
                             )
-                            .transition(.move(edge: .top).combined(with: .opacity))
+                            .opacity(showsMiniPlayer ? 1 : 0)
+                            .animation(.easeOut(duration: 0.18), value: showsMiniPlayer)
                         }
 
-                        if let error = store.errorMessage {
-                            StatusBanner(
-                                message: error,
-                                systemImage: "exclamationmark.triangle",
-                                tint: .orange,
-                                actionTitle: String(localized: "Retry"),
-                                action: { store.refreshStations() }
+                    if showsMiniPlayer {
+                        VStack(spacing: 0) {
+
+                            Color.clear
+                                .frame(height: Self.stationSpacing)
+
+                            MiniPlayerView(store: store, player: player)
+                                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: {
+                                    miniPlayerHeight = $0
+                                }
+                                .padding(.horizontal, Self.miniPlayerHorizontalInset)
+
+                                .padding(.bottom, -Self.miniPlayerDrop)
+
+                        }
+
+                        .transition(
+                            .asymmetric(
+                                insertion: .offset(x: 0, y: 140).combined(with: .opacity),
+                                removal: .move(edge: .bottom).combined(with: .opacity)
                             )
-                            .transition(.move(edge: .top).combined(with: .opacity))
-                        }
-
-                        stationContent(columns: stationColumns)
-                    }
-
-                    .padding(.horizontal, Self.stationContentHorizontalInset)
-                    // Keep the scroll content tied to the viewport width, not to its widest child.
-                    .frame(maxWidth: .infinity, alignment: .top)
-
-                    .id(Self.stationListBottomID)
-                }
-                .frame(maxWidth: .infinity)
-
-                .contentMargins(.top, stationListTopInset, for: .scrollContent)
-                .modifier(TopScrollEdgeEffect(hasLocationHeader: store.settings.showLocationHeader))
-                .background {
-                    if store.settings.showLocationHeader {
-                        Palette.background
-                    } else {
-
-                        Color.clear
+                        )
                     }
                 }
-                .safeAreaInset(edge: .bottom, spacing: 0) {
-                    ZStack(alignment: .bottom) {
+            }
+            .animation(.spring(response: 0.52, dampingFraction: 0.86), value: showsMiniPlayer)
+            .scrollDismissesKeyboard(.interactively)
+            .animation(.snappy(duration: 0.24), value: store.isNetworkAvailable)
+            .animation(.snappy(duration: 0.24), value: store.errorMessage)
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                max(0, geometry.contentSize.height - geometry.visibleRect.maxY)
+                    <= Self.scrollBottomFollowTolerance
+            } action: { _, isAtBottom in
 
-                        Color.clear
-                            .frame(height: 0)
-                            .background(alignment: .bottom) {
-                                BottomEdgeFade(
-                                    bottomInset: bottomSafeInset,
-                                    playerDrop: Self.miniPlayerDrop,
-                                    playerHeight: miniPlayerHeight
-                                )
-                                .opacity(showsMiniPlayer ? 1 : 0)
-                                .animation(.easeOut(duration: 0.18), value: showsMiniPlayer)
-                            }
+                if !showsMiniPlayer {
+                    shouldFollowBottomWhenMiniPlayerAppears = isAtBottom
+                }
+            }
+            .onChange(of: showsMiniPlayer) { wasShowing, isShowing in
 
-                        if showsMiniPlayer {
-                            VStack(spacing: 0) {
+                guard
+                    !wasShowing,
+                    isShowing,
+                    shouldFollowBottomWhenMiniPlayerAppears
+                else { return }
 
-                                Color.clear
-                                    .frame(height: Self.stationSpacing)
+                shouldFollowBottomWhenMiniPlayerAppears = false
+                Task { @MainActor in
 
-                                MiniPlayerView(store: store, player: player)
-                                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: {
-                                        miniPlayerHeight = $0
-                                    }
-                                    .padding(.horizontal, Self.miniPlayerHorizontalInset)
-
-                                    .padding(.bottom, -Self.miniPlayerDrop)
-
-                            }
-
-                            .transition(
-                                .asymmetric(
-                                    insertion: .offset(x: 0, y: 140).combined(with: .opacity),
-                                    removal: .move(edge: .bottom).combined(with: .opacity)
-                                )
-                            )
-                        }
+                    try? await Task.sleep(for: .milliseconds(140))
+                    guard showsMiniPlayer else { return }
+                    withAnimation(.spring(response: 0.52, dampingFraction: 0.86)) {
+                        scrollProxy.scrollTo(Self.stationListBottomID, anchor: .bottom)
                     }
                 }
-                .animation(.spring(response: 0.52, dampingFraction: 0.86), value: showsMiniPlayer)
-                .scrollDismissesKeyboard(.interactively)
-                .animation(.snappy(duration: 0.24), value: store.isNetworkAvailable)
-                .animation(.snappy(duration: 0.24), value: store.errorMessage)
-                .onScrollGeometryChange(for: Bool.self) { geometry in
-                    max(0, geometry.contentSize.height - geometry.visibleRect.maxY)
-                        <= Self.scrollBottomFollowTolerance
-                } action: { _, isAtBottom in
-
-                    if !showsMiniPlayer {
-                        shouldFollowBottomWhenMiniPlayerAppears = isAtBottom
-                    }
-                }
-                .onChange(of: showsMiniPlayer) { wasShowing, isShowing in
-
-                    guard
-                        !wasShowing,
-                        isShowing,
-                        shouldFollowBottomWhenMiniPlayerAppears
-                    else { return }
-
-                    shouldFollowBottomWhenMiniPlayerAppears = false
-                    Task { @MainActor in
-
-                        try? await Task.sleep(for: .milliseconds(140))
-                        guard showsMiniPlayer else { return }
-                        withAnimation(.spring(response: 0.52, dampingFraction: 0.86)) {
-                            scrollProxy.scrollTo(Self.stationListBottomID, anchor: .bottom)
-                        }
-                    }
         }
     }
 
