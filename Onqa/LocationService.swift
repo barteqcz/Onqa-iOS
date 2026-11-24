@@ -177,10 +177,11 @@ extension RadioStore {
     /// are stored alongside the manually selected city in AppSettings.
     var displayedLocationRetrievedAt: Date? {
         if settings.locationSource == .manual {
-            guard settings.manualCity != nil || locationName != nil else { return nil }
-            return settings.manualLocationRetrievedAt
-                ?? locationRetrievedAt
-                ?? lastAutomaticLocationRetrievedAt
+            if settings.manualCity != nil {
+                return settings.manualCityGeocodedAt
+            }
+            guard locationName != nil else { return nil }
+            return locationRetrievedAt ?? lastAutomaticLocationRetrievedAt
         }
         guard locationName != nil else { return nil }
         return locationRetrievedAt
@@ -876,7 +877,7 @@ extension RadioStore {
             if saveManualCity, let name = result.name {
                 var value = self.settings
                 value.manualCity = name
-                value.manualLocationRetrievedAt = retrievedAt
+                value.manualCityGeocodedAt = retrievedAt
                 self.settings = value
             }
         }
