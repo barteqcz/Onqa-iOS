@@ -515,15 +515,21 @@ struct RadioHomeView: View {
                             .foregroundStyle(colorScheme == .light ? Color.black : Color.white)
                             .lineLimit(1)
                             .minimumScaleFactor(0.65)
-                        if let age = LocationAgePolicy.text(since: retrievedAt, now: context.date) {
+                        let age = LocationAgePolicy.text(since: retrievedAt, now: context.date)
+                        if let age {
                             // Fixed size, so a long city name shrinks first.
                             Text(age)
                                 .font(.system(size: 13, weight: .medium))
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
                                 .fixedSize(horizontal: true, vertical: false)
+                                .transition(.opacity.combined(with: .offset(y: 3)))
                         }
                     }
+                    .animation(.easeInOut(duration: 0.22), value: LocationAgePolicy.text(
+                        since: retrievedAt,
+                        now: context.date
+                    ) != nil)
                 }
             }
         }
