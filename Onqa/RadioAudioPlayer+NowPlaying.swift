@@ -91,10 +91,8 @@ enum NowPlayingArtworkFactory {
                 height: fittedSize.height
             )
 
-            // Core Graphics uses a lower-left origin; flip the bitmap context
-            // so the returned UIImage has the same upright orientation.
-            context.translateBy(x: 0, y: CGFloat(height))
-            context.scaleBy(x: 1, y: -1)
+            // UIImage(cgImage:) applies UIKit's Core Graphics coordinate
+            // correction. Flipping this context as well would invert the logo.
             context.draw(source, in: fittedRect)
 
             guard let rendered = context.makeImage() else { return normalized }
