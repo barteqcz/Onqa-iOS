@@ -6,11 +6,8 @@ import MediaPlayer
 import UIKit
 @testable import Onqa
 
- 
- 
 @Suite
 struct ReliabilityTests {
-     
 
     @Test func backoffGrowsExponentiallyAndIsCapped() {
         func delay(_ failures: Int) -> TimeInterval {
@@ -29,8 +26,6 @@ struct ReliabilityTests {
     @Test func backoffNeverReturnsNegativeForNegativeInput() {
         #expect(RetryBackoff.delay(afterFailures: -3, base: 3, cap: 30) == 0)
     }
-
-     
 
     @Test func nameLookupIsRetriedOnlyWhenVisibleAndAllowed() {
         #expect(LocationNamePolicy.shouldRetryLookup(
@@ -51,19 +46,19 @@ struct ReliabilityTests {
     }
 
     @Test func cachedCityWithoutTimestampNeedsGeocodingRefresh() {
-        let hasSuccessfulGeocode = LocationNamePolicy.hasSuccessfulGeocode(
+        let hasFreshGeocode = LocationNamePolicy.hasFreshGeocode(
             hasName: true,
             retrievedAt: nil
         )
 
-        #expect(!hasSuccessfulGeocode)
+        #expect(!hasFreshGeocode)
         #expect(LocationNamePolicy.shouldRetryLookup(
-            hasName: hasSuccessfulGeocode,
+            hasName: hasFreshGeocode,
             isResolving: false,
             isRetryAllowed: true,
             appIsActive: true
         ))
-        #expect(LocationNamePolicy.hasSuccessfulGeocode(
+        #expect(LocationNamePolicy.hasFreshGeocode(
             hasName: true,
             retrievedAt: Date()
         ))
@@ -199,18 +194,14 @@ struct ReliabilityTests {
         #expect(pixel(original, x: 256, y: 64) != pixel(original, x: 256, y: 448))
     }
 
-     
-
     @Test func onlyInvalidFixesAreRejected() {
         #expect(!LocationFixQuality.isUsable(horizontalAccuracy: -1))
         #expect(LocationFixQuality.isUsable(horizontalAccuracy: 0))
         #expect(LocationFixQuality.isUsable(horizontalAccuracy: 10))
-         
+
         #expect(LocationFixQuality.isUsable(horizontalAccuracy: 3_000))
         #expect(LocationFixQuality.isUsable(horizontalAccuracy: 25_000))
     }
-
-     
 
     @Test func transientLocationErrorsKeepTracking() {
         #expect(LocationErrorPolicy.action(for: .locationUnknown) == .keepTrying)
@@ -218,12 +209,9 @@ struct ReliabilityTests {
     }
 
     @Test func fatalLocationErrorsStopTracking() {
-         
-         
+
         #expect(LocationErrorPolicy.action(for: .denied) == .stopTracking)
     }
-
-     
 
     private func isolatedDefaults() -> UserDefaults {
         let name = "onqa.tests.savedlocation.\(UUID().uuidString)"
@@ -280,8 +268,6 @@ struct ReliabilityTests {
         #expect(defaults.data(forKey: SavedLocationStorage.key) == nil)
     }
 
-     
-
     @Test func savedLocationKeepsItsRetrievalTime() {
         let defaults = isolatedDefaults()
         let retrievedAt = Date(timeIntervalSince1970: 1_800_000_000)
@@ -298,7 +284,7 @@ struct ReliabilityTests {
     }
 
     @Test func savedLocationFromEarlierVersionStillLoads() throws {
-         
+
         let defaults = isolatedDefaults()
         let legacy = Data(#"{"latitude":50.29,"longitude":18.67,"name":"Gliwice","countryCode":"PL"}"#.utf8)
         defaults.set(legacy, forKey: SavedLocationStorage.key)
@@ -326,12 +312,9 @@ struct ReliabilityTests {
         let fiveMinutes = LocationAgePolicy.text(since: now.addingTimeInterval(-300), now: now)
         let twoHours = LocationAgePolicy.text(since: now.addingTimeInterval(-7_200), now: now)
 
-         
         #expect(fiveMinutes?.contains("5") == true)
         #expect(twoHours?.contains("2") == true)
     }
-
-     
 
     @Test func onlyTrackTitleIdentifiersAreAccepted() {
         #expect(StreamMetadata.isTrackTitle(identifier: "icy/StreamTitle"))
@@ -341,8 +324,6 @@ struct ReliabilityTests {
         #expect(!StreamMetadata.isTrackTitle(identifier: "icy/icy-name"))
         #expect(!StreamMetadata.isTrackTitle(identifier: nil))
     }
-
-     
 
     @Test func plainHTTPLogoURLsAreUpgradedToHTTPS() {
         let http = URL(string: "http://example.com/logo.png?size=2")!
@@ -356,15 +337,12 @@ struct ReliabilityTests {
         #expect(StationImageCache.secureURL(withPort) == withPort)
     }
 
-     
-
     @Test func validCatalogPassesValidationAndIsQueried() throws {
         let url = try makeCatalog()
         defer { try? FileManager.default.removeItem(at: url) }
 
         try CatalogRepository.validateDatabase(at: url)
 
-         
         let stations = try CatalogRepository.queryCatalog(
             path: url.path,
             latitude: 50.1,
@@ -379,7 +357,6 @@ struct ReliabilityTests {
         let distance = try #require(first.distanceKm)
         #expect(abs(distance - 11.1) < 0.3)
 
-         
         let second = try #require(stations.first { $0.name == "Radio Two" })
         #expect(second.network == nil)
         #expect(second.streamURLHQ == nil)
@@ -421,7 +398,6 @@ struct ReliabilityTests {
         try CatalogRepository.installCatalog(from: first, to: destination)
         #expect(FileManager.default.fileExists(atPath: destination.path))
 
-         
         try CatalogRepository.installCatalog(from: second, to: destination)
         try CatalogRepository.validateDatabase(at: destination)
         #expect(!FileManager.default.fileExists(atPath: destination.appendingPathExtension("new").path))
@@ -450,10 +426,6 @@ struct ReliabilityTests {
         try CatalogRepository.validateDatabase(at: destination)
     }
 
-     
-
-     
-     
     private func makeCatalog(omitCoverageColumn: Bool = false) throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("onqa-catalog-test-\(UUID().uuidString).sqlite")

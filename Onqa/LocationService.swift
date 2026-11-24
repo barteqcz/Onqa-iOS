@@ -81,10 +81,6 @@ enum LocationNamePolicy {
         hasName && hasFailedGeocode
     }
 
-    static func hasSuccessfulGeocode(hasName: Bool, retrievedAt: Date?) -> Bool {
-        hasName && retrievedAt != nil
-    }
-
     static func hasFreshGeocode(
         hasName: Bool,
         retrievedAt: Date?,
@@ -218,10 +214,6 @@ extension RadioStore {
         }
         guard locationName != nil else { return nil }
         return locationRetrievedAt
-    }
-
-    func locationAgeText(now: Date = Date()) -> String? {
-        LocationAgePolicy.text(since: displayedLocationRetrievedAt, now: now)
     }
 
     func bootstrap() async {
