@@ -1,7 +1,5 @@
 import os
 
- 
- 
 enum Log {
     private static let subsystem = "com.barteqcz.onqa"
 

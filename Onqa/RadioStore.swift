@@ -29,8 +29,7 @@ final class RadioStore {
                 isResolvingLocationName = false
                 if settings.locationSource == .gps {
                     if let coordinate = lastAutomaticCoordinate {
-                         
-                         
+
                         locationCoordinate = coordinate
                         locationName = lastAutomaticLocationName
                         locationCountryCode = lastAutomaticLocationCountryCode
@@ -75,25 +74,18 @@ final class RadioStore {
     var locationCoordinate: CLLocationCoordinate2D?
     var locationName: String?
     var locationCountryCode: String?
-     
-     
+
     var locationRetrievedAt: Date?
     @ObservationIgnored var gpsLocationNameRetryState = LocationNameRetryState()
     @ObservationIgnored var manualLocationNameRetryState = LocationNameRetryState()
-     
-     
+
     var isResolvingLocationName = false
     var locationAuthorizationStatus: CLAuthorizationStatus = .notDetermined
-     
-     
+
     var hasConfirmedOnboardingThisSession = false
     var isLoading = false
     var isDownloadingCatalog = false
-     
-     
-     
-     
-     
+
     var catalogStatus: CatalogStatus?
     var isNetworkAvailable = true
     var locationPermissionDenied = false

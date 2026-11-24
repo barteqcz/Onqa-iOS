@@ -3,9 +3,6 @@ import MapKit
 import UIKit
 import Observation
 
- 
-
- 
 // A measured, looping ticker keeps long live-track titles readable without changing the mini-player layout.
 private struct MiniPlayerMetadataView: View {
     let text: String
@@ -66,15 +63,6 @@ private struct MiniPlayerMetadataView: View {
     }
 }
 
- 
-
- 
- 
- 
- 
- 
- 
- 
 // Animate the current card out before changing stations, then bring the replacement card back into view.
 private struct MiniPlayerSwipe: ViewModifier {
     let isEnabled: Bool
@@ -86,10 +74,10 @@ private struct MiniPlayerSwipe: ViewModifier {
     @State private var size: CGSize = .zero
     private enum Phase { case idle, slidingOut, slidingIn }
     @State private var phase: Phase = .idle
-     
+
     @State private var generation = 0
     @State private var hapticTrigger = 0
-     
+
     @GestureState private var isDragging = false
 
     private let distanceThreshold: CGFloat = 50
@@ -100,9 +88,7 @@ private struct MiniPlayerSwipe: ViewModifier {
 
     func body(content: Content) -> some View {
         ZStack {
-             
-             
-             
+
             Color.clear
                 .frame(width: size.width, height: size.height)
                 .contentShape(Rectangle())
@@ -113,9 +99,7 @@ private struct MiniPlayerSwipe: ViewModifier {
                 .offset(x: offsetX)
                 .opacity(opacity)
         }
-         
-         
-         
+
         .simultaneousGesture(isEnabled ? swipe : nil)
         .onChange(of: isDragging) { _, dragging in
             if !dragging && phase == .idle && offsetX != 0 { springBack() }
@@ -147,9 +131,9 @@ private struct MiniPlayerSwipe: ViewModifier {
                 guard isHorizontal(value) else { return springBack() }
 
                 if drag < -distanceThreshold || flick < -flickThreshold {
-                    commit(direction: -1, action: onNext)        
+                    commit(direction: -1, action: onNext)
                 } else if drag > distanceThreshold || flick > flickThreshold {
-                    commit(direction: 1, action: onPrevious)    
+                    commit(direction: 1, action: onPrevious)
                 } else {
                     springBack()
                 }
@@ -161,15 +145,12 @@ private struct MiniPlayerSwipe: ViewModifier {
     }
 
     private func commit(direction: CGFloat, action: @escaping () -> Void) {
-         
-         
-         
+
         generation += 1
         let current = generation
         phase = .slidingOut
         hapticTrigger += 1
 
-         
         withAnimation(.easeIn(duration: 0.13)) {
             offsetX = direction * size.width
             opacity = 0
@@ -178,8 +159,6 @@ private struct MiniPlayerSwipe: ViewModifier {
         Task { @MainActor in
             try? await Task.sleep(for: slideOut)
 
-             
-             
             action()
             var jump = Transaction()
             jump.disablesAnimations = true
@@ -188,7 +167,6 @@ private struct MiniPlayerSwipe: ViewModifier {
                 opacity = 0
             }
 
-             
             phase = .slidingIn
             withAnimation(.spring(response: 0.34, dampingFraction: 0.85)) {
                 offsetX = 0
@@ -199,8 +177,6 @@ private struct MiniPlayerSwipe: ViewModifier {
         }
     }
 }
-
- 
 
 /// Compact playback surface shared across the app, including track metadata and station-swipe controls.
 struct MiniPlayerView: View {
@@ -297,8 +273,7 @@ struct MiniPlayerView: View {
                 interactive: true
             )
             .animation(.easeInOut(duration: 0.2), value: player.isPlaying)
-             
-             
+
             .contentShape(shape)
             .onTapGesture {}
             .id(station.id)
@@ -309,10 +284,7 @@ struct MiniPlayerView: View {
                 )
             )
             .animation(.spring(response: 0.42, dampingFraction: 0.82), value: station.id)
-             
-             
-             
-             
+
             .modifier(
                 MiniPlayerSwipe(
                     isEnabled: player.hasMultipleStations,
@@ -320,10 +292,7 @@ struct MiniPlayerView: View {
                     onNext: store.playNext
                 )
             )
-             
-             
-             
-             
+
             .transaction(value: isFavorite) { $0.animation = nil }
         }
     }

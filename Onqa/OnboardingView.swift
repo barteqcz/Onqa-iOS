@@ -3,8 +3,6 @@ import MapKit
 import UIKit
 import Observation
 
- 
-
 /// Guides first launch through location permission, with a manual-location path when GPS access is unavailable.
 struct OnboardingView: View {
     let store: RadioStore
@@ -26,7 +24,7 @@ struct OnboardingView: View {
             let artworkSize = min(172, max(124, geometry.size.height * 0.22))
 
             VStack(spacing: 0) {
-                 
+
                 VStack(spacing: 0) {
                     Image("OnboardingAppIcon")
                         .resizable()
@@ -47,14 +45,11 @@ struct OnboardingView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.top, isTight ? 2 : 8)
 
-                 
-                 
                 Spacer(minLength: isTight ? 12 : 24)
 
                 Button {
                     if store.needsLocationSettings {
-                         
-                         
+
                         if let url = URL(string: UIApplication.openSettingsURLString) {
                             openURL(url)
                         }
@@ -90,7 +85,6 @@ struct OnboardingView: View {
 
                 Spacer(minLength: isTight ? 12 : 24)
 
-                 
                 if hasLocationAccess {
                     Button {
                         store.completeOnboarding()
@@ -101,7 +95,7 @@ struct OnboardingView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, isTight ? 13 : (isCompact ? 15 : 18))
                             .onqaAccentCapsule(accent)
-                             
+
                             .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)

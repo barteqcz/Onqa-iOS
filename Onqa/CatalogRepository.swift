@@ -9,14 +9,10 @@ extension RadioStore {
         let wasAvailable = isNetworkAvailable
         isNetworkAvailable = isAvailable
         guard isAvailable && !wasAvailable else { return }
-         
-         
-         
-         
+
         player.retryNow()
         retryLocationNameAfterReconnect()
-         
-         
+
         if catalogStatus == .offline {
             refreshStations()
         }
@@ -41,7 +37,7 @@ extension RadioStore {
     }
 
     func loadStations(at coordinate: CLLocationCoordinate2D) async {
-         
+
         if isLoading {
             pendingStationCoordinate = coordinate
             return
@@ -66,8 +62,6 @@ extension RadioStore {
                 try CatalogRepository.queryCatalog(path: database.path, latitude: latitude, longitude: longitude)
             }.value
 
-             
-             
             guard pendingStationCoordinate == nil,
                   settings.locationSource == sourceAtRequest else { return }
 
@@ -79,15 +73,14 @@ extension RadioStore {
             }
             rebuildStations()
             if stations.isEmpty {
-                 
-                 
+
                 player.stop()
             } else {
                 checkCoverageAndSwitch()
             }
         } catch {
             Log.catalog.error("Loading stations failed: \(error.localizedDescription, privacy: .public)")
-             
+
             if catalogStatus != .offline {
                 errorMessage = error.localizedDescription
             }
@@ -118,18 +111,15 @@ extension RadioStore {
         didCheckCatalogForUpdateThisLaunch = true
 
         if isLaunchCheck, FileManager.default.fileExists(atPath: url.path) {
-             
-             
+
             Task.detached(priority: .utility) { CatalogRepository.excludeFromBackup(url) }
         }
 
         if !FileManager.default.fileExists(atPath: url.path) {
-             
+
             try await downloadCatalogReportingStatus(isRequired: true)
         } else if isLaunchCheck && isCatalogUpdateDue {
-             
-             
-             
+
             Task { [weak self] in
                 guard let self else { return }
                 let updated = await self.refreshCatalogIgnoringFailure()
@@ -146,10 +136,6 @@ extension RadioStore {
         return Date().timeIntervalSince(lastUpdate) >= interval
     }
 
-     
-     
-     
-     
     func refreshCatalogIgnoringFailure() async -> Bool {
         do {
             try await downloadCatalogReportingStatus(isRequired: false)
@@ -160,9 +146,6 @@ extension RadioStore {
         }
     }
 
-     
-     
-     
     func downloadCatalogReportingStatus(isRequired: Bool) async throws {
         guard isNetworkAvailable else {
             if isRequired { catalogStatus = .offline }
@@ -180,8 +163,6 @@ extension RadioStore {
         }
     }
 
-     
-     
     func downloadCatalog() async throws {
         if let catalogDownloadTask {
             try await catalogDownloadTask.value
@@ -207,7 +188,7 @@ extension RadioStore {
         let destination = CatalogRepository.databaseFileURL()
         var request = URLRequest(url: Self.catalogURL)
         request.timeoutInterval = 30
-         
+
         if let etag = settings.catalogETag, FileManager.default.fileExists(atPath: destination.path) {
             request.setValue(etag, forHTTPHeaderField: "If-None-Match")
         }
@@ -224,13 +205,12 @@ extension RadioStore {
             throw CatalogError.http(http.statusCode)
         }
 
-         
         try await Task.detached(priority: .utility) {
             try CatalogRepository.installCatalog(from: temporaryURL, to: destination)
         }.value
 
         Log.catalog.info("Catalog updated")
-         
+
         lastAutomaticCatalogStations = nil
         lastAutomaticCatalogCoordinate = nil
         recordCatalogUpdate(etag: http?.value(forHTTPHeaderField: "ETag"))
@@ -246,7 +226,7 @@ extension RadioStore {
 }
 
 enum CatalogRepository {
-     
+
     static func installCatalog(from temporaryURL: URL, to destination: URL) throws {
         try FileManager.default.createDirectory(
             at: destination.deletingLastPathComponent(),
@@ -267,9 +247,6 @@ enum CatalogRepository {
         excludeFromBackup(destination)
     }
 
-     
-     
-     
     static func excludeFromBackup(_ url: URL) {
         var url = url
         var values = URLResourceValues()
@@ -307,9 +284,6 @@ enum CatalogRepository {
             throw CatalogError.invalidDatabase
         }
 
-         
-         
-         
         let requiredColumns: [String: Set<String>] = [
             "stations": ["id", "name", "stream_url", "stream_url_hq", "logo", "network"],
             "transmitters": ["id", "name", "latitude", "longitude"],
@@ -370,8 +344,6 @@ enum CatalogRepository {
         }
         defer { sqlite3_finalize(statement) }
 
-         
-         
         let origin = CLLocation(latitude: latitude, longitude: longitude)
 
         var result: [RadioStation] = []
@@ -419,12 +391,10 @@ enum CatalogRepository {
     }
 }
 
- 
- 
 enum CatalogStatus: Equatable {
-     
+
     case downloading
-     
+
     case offline
 }
 
@@ -434,7 +404,6 @@ enum CatalogError: LocalizedError {
     case invalidDatabase
     case queryFailed
 
-     
     static func isOffline(_ error: Error) -> Bool {
         if let catalogError = error as? CatalogError, case .offline = catalogError {
             return true
@@ -461,4 +430,3 @@ enum CatalogError: LocalizedError {
         }
     }
 }
-

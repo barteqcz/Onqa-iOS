@@ -3,11 +3,6 @@ import MapKit
 import UIKit
 import Observation
 
- 
-
- 
- 
- 
 struct CitySearchResult: Identifiable {
     let title: String
     let subtitle: String
@@ -28,7 +23,6 @@ struct CitySearchResult: Identifiable {
     }
 }
 
- 
 @MainActor
 @Observable
 final class CitySearchModel {
@@ -54,8 +48,6 @@ final class CitySearchModel {
         completer.queryFragment = trimmed
     }
 
-     
-     
     func setResults(_ results: [CitySearchResult]) {
         self.results = results
     }
@@ -68,8 +60,6 @@ final class CitySearchModel {
     }
 }
 
- 
- 
 @MainActor
 private final class CitySearchCompleterDelegate: NSObject, @MainActor MKLocalSearchCompleterDelegate {
     weak var owner: CitySearchModel?
@@ -261,8 +251,6 @@ struct MapLocationPickerView: View {
         hasSelectedLocation = true
         searchText = ""
 
-         
-         
         withAnimation(.smooth(duration: 0.45)) {
             recenterMap(on: coordinate)
         }

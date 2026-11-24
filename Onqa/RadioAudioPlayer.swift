@@ -35,7 +35,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     }
     private(set) var metadata: String?
 
-     
     var hasActivePlayback: Bool {
         isPlaying || isBuffering || isReconnecting
     }
@@ -44,8 +43,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     var onPrevious: (() -> Void)?
     var onPlaybackActivityChange: (() -> Void)?
 
-     
-     
     @ObservationIgnored private var player = AVPlayer()
     private var volumeFadeTask: Task<Void, Never>?
     private var reconnectTask: Task<Void, Never>?
@@ -53,24 +50,18 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     private var itemNotificationObservers: [NSObjectProtocol] = []
     private var playbackRequestID: UInt64 = 0
     private var shouldFadeInWhenPlaybackStarts = false
-     
-     
-     
-     
+
     private var holdsSwitchUI = false
     private var switchTargetItem: AVPlayerItem?
-     
-     
+
     private let volumeFadeSteps = 24
     private let volumeFadeStep: Duration = .milliseconds(25)
-     
-     
+
     private let reconnectBaseDelay: TimeInterval = 3
     private let reconnectMaxDelay: TimeInterval = 30
     private var reconnectFailures = 0
     private let stalledPlaybackRecoveryDelay: Duration = .seconds(10)
-     
-     
+
     private var resumeAfterInterruption = false
     private var routeChangeObserver: NSObjectProtocol?
     private var timeControlObservation: NSKeyValueObservation?
@@ -81,13 +72,10 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     private var audioSessionIsActive = false
     private var useHQForCurrentStation = true
     private var mediaServicesResetObserver: NSObjectProtocol?
-     
-     
-     
+
     private let pausedSessionGracePeriod: Duration = .seconds(120)
     private var audioSessionDeactivationTask: Task<Void, Never>?
-     
-     
+
     var hasMultipleStations = false {
         didSet {
             if oldValue != hasMultipleStations { updateRemoteCommandAvailability() }
@@ -115,8 +103,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
             }
         }
 
-         
-         
         routeChangeObserver = NotificationCenter.default.addObserver(
             forName: AVAudioSession.routeChangeNotification,
             object: AVAudioSession.sharedInstance(),
@@ -129,8 +115,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
             Task { @MainActor in self?.pauseAfterRouteLoss() }
         }
 
-         
-         
         mediaServicesResetObserver = NotificationCenter.default.addObserver(
             forName: AVAudioSession.mediaServicesWereResetNotification,
             object: AVAudioSession.sharedInstance(),
@@ -140,16 +124,8 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         }
     }
 
-     
-     
-     
     private func configurePlayer() {
         player.automaticallyWaitsToMinimizeStalling = true
-
-         
-         
-         
-         
 
         timeControlObservation = Self.observeTimeControlStatus(of: player) { [weak self] in
             Task { @MainActor in
@@ -165,7 +141,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         let station = currentStation
         let wasActive = isPlaying || isBuffering || isReconnecting
 
-         
         playbackRequestID &+= 1
         resumeAfterInterruption = false
         reconnectTask?.cancel()
@@ -205,7 +180,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         case .began:
             let wasActive = isPlaying || isBuffering || isReconnecting
             pause()
-             
+
             resumeAfterInterruption = wasActive
         case .ended:
             let shouldRestart = resumeAfterInterruption && shouldResume
@@ -224,9 +199,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     // AVPlayer status is the source of truth; during a station switch, hold the UI on buffering until the new item plays.
     private func updatePlaybackState() {
         if holdsSwitchUI {
-             
-             
-             
+
             if player.timeControlStatus == .playing,
                let target = switchTargetItem,
                player.currentItem === target,
@@ -291,7 +264,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
             reconnectTask?.cancel()
             reconnectTask = nil
             isReconnecting = false
-             
+
             reconnectFailures = 0
         }
 
@@ -307,8 +280,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         shouldFadeInWhenPlaybackStarts = false
 
         guard let url = station.streamURL(useHQ: useHQ) else {
-             
-             
+
             player.volume = 0
             player.pause()
             player.replaceCurrentItem(with: nil)
@@ -317,8 +289,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
             metadataOutput = nil
             deactivateAudioSession()
             currentStation = station
-             
-             
+
             stationArtwork = nil
             loadArtwork(for: station)
             metadata = nil
@@ -332,9 +303,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
             return
         }
 
-         
-         
-         
         let hasAudibleStream = player.currentItem != nil && player.volume > 0.001
 
         guard hasAudibleStream else {
@@ -342,9 +310,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
             return
         }
 
-         
-         
-         
         holdsSwitchUI = true
         currentStation = station
         stationArtwork = nil
@@ -489,8 +454,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         scheduleReconnect(for: station, useHQ: useHQ, requestID: requestID)
     }
 
-     
-     
     func retryNow() {
         guard
             let station = currentStation,
@@ -502,8 +465,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         reconnectTask = nil
         stalledPlaybackTask?.cancel()
         stalledPlaybackTask = nil
-         
-         
+
         reconnectFailures = 0
         beginPlayback(
             station,
@@ -527,8 +489,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         }
     }
 
-     
-     
     private func scheduleAudioSessionDeactivation() {
         audioSessionDeactivationTask?.cancel()
         guard audioSessionIsActive else { return }
@@ -581,9 +541,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         isBuffering = true
         isPlaying = false
 
-         
-         
-         
         player.volume = 0
         player.pause()
         player.replaceCurrentItem(with: nil)
@@ -619,8 +576,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
                         item: observedItem
                     )
                 } else {
-                     
-                     
+
                     if self.playbackRequestID == requestID {
                         self.updatePlaybackState()
                     }
@@ -629,8 +585,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
             }
         }
 
-         
-         
         let failureObserver = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemFailedToPlayToEndTime,
             object: item,
@@ -647,9 +601,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         }
         itemNotificationObservers.append(failureObserver)
 
-         
-         
-         
         let stalledObserver = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemPlaybackStalled,
             object: item,
@@ -722,8 +673,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     private func finishPause() {
         player.volume = 0
         player.pause()
-         
-         
+
         player.replaceCurrentItem(with: nil)
         itemStatusObservation = nil
         removeItemNotificationObservers()
@@ -811,19 +761,12 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         updateRemoteCommandAvailability()
     }
 
-     
-     
     nonisolated func metadataOutput(
         _ output: AVPlayerItemMetadataOutput,
         didOutputTimedMetadataGroups groups: [AVTimedMetadataGroup],
         from track: AVPlayerItemTrack?
     ) {
-         
-         
-         
-         
-         
-         
+
         let title = groups
             .flatMap(\.items)
             .filter { StreamMetadata.isTrackTitle(identifier: $0.identifier?.rawValue) }
@@ -837,20 +780,12 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     }
 
     private func applyMetadata(_ title: String, from source: ObjectIdentifier) {
-         
-         
+
         guard let current = metadataOutput, ObjectIdentifier(current) == source else { return }
         metadata = title
         updateNowPlaying()
     }
 
-     
-     
-     
-     
-     
-     
-     
     nonisolated private static func observeTimeControlStatus(
         of player: AVPlayer,
         handler: @escaping @Sendable () -> Void

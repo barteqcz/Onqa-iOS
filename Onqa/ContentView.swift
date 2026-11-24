@@ -4,13 +4,11 @@ import UIKit
 import Observation
 
 extension OnqaAccent {
-     
-     
-     
+
     private static let swiftUIColors: [OnqaAccent: Color] = Dictionary(
         uniqueKeysWithValues: allCases.map { accent -> (OnqaAccent, Color) in
             let value = accent.color
-             
+
             let color = Color(uiColor: UIColor { traits in
                 let f: CGFloat = traits.userInterfaceStyle == .dark ? 1 : 0.45
                 return UIColor(red: value.red * f, green: value.green * f, blue: value.blue * f, alpha: 1)

@@ -3,14 +3,6 @@ import MediaPlayer
 import UIKit
 import os
 
- 
- 
- 
- 
- 
- 
- 
- 
 // Normalize artwork to a predictable canvas and cap the rendered dimensions for system media surfaces.
 enum NowPlayingArtworkFactory {
     private static let maximumPixelSide = 512
@@ -92,8 +84,6 @@ enum NowPlayingArtworkFactory {
                 height: fittedSize.height
             )
 
-             
-             
             context.draw(source, in: fittedRect)
 
             guard let rendered = context.makeImage() else { return normalized }
@@ -116,8 +106,7 @@ extension RadioAudioPlayer {
 
     func configureRemoteCommands() {
         let center = MPRemoteCommandCenter.shared()
-         
-         
+
         for command in [center.playCommand, center.pauseCommand, center.togglePlayPauseCommand,
                         center.nextTrackCommand, center.previousTrackCommand] {
             command.removeTarget(nil)
@@ -148,8 +137,6 @@ extension RadioAudioPlayer {
                 let data = try await StationImageCache.shared.data(for: url)
                 let svg = StationLogoFormat.svgData(from: data)
 
-                 
-                 
                 let image: UIImage?
                 if let svg {
                     image = await StationImageCache.shared.renderedSVG(for: url, data: svg)
@@ -165,15 +152,12 @@ extension RadioAudioPlayer {
                 self.stationArtwork = NowPlayingArtworkFactory.makeArtwork(from: image)
                 self.updateNowPlaying()
             } catch {
-                 
+
                 Log.playback.debug("Artwork unavailable: \(error.localizedDescription, privacy: .public)")
             }
         }
     }
 
-     
-     
-     
     func updateRemoteCommandAvailability() {
         let center = MPRemoteCommandCenter.shared()
         let hasStation = currentStation != nil
@@ -200,9 +184,7 @@ extension RadioAudioPlayer {
             MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? 1.0 : 0.0,
             MPNowPlayingInfoPropertyMediaType: MPNowPlayingInfoMediaType.audio.rawValue
         ]
-         
-         
-         
+
         if liveMetadata != nil {
             info[MPMediaItemPropertyArtist] = station.name
         }

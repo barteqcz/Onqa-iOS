@@ -3,18 +3,12 @@ import MapKit
 import UIKit
 import Observation
 
- 
-
- 
- 
- 
- 
 private struct BottomEdgeFade: View {
-     
+
     let bottomInset: CGFloat
-     
+
     let playerDrop: CGFloat
-     
+
     let playerHeight: CGFloat
 
     var body: some View {
@@ -31,7 +25,7 @@ private struct BottomEdgeFade: View {
             startPoint: .bottom,
             endPoint: .top
         )
-         
+
         .frame(height: playerHeight + belowSafeArea)
         .offset(y: belowSafeArea)
         .allowsHitTesting(false)
@@ -50,18 +44,13 @@ private struct HomeToolbarBackground: ViewModifier {
                 .toolbarBackgroundVisibility(.visible, for: .navigationBar)
                 .toolbarColorScheme(colorScheme, for: .navigationBar)
         } else {
-             
-             
+
             content
                 .toolbarBackgroundVisibility(.hidden, for: .navigationBar)
         }
     }
 }
 
- 
- 
- 
- 
 private struct TopScrollEdgeEffect: ViewModifier {
     let hasLocationHeader: Bool
 
@@ -80,20 +69,16 @@ struct RadioHomeView: View {
     @Bindable var store: RadioStore
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.colorScheme) private var colorScheme
-     
-     
+
     @Environment(\.locale) private var locale
-     
-     
-     
+
     @State private var searchIsActive = false
     @FocusState private var searchFocused: Bool
     @Namespace private var searchGlassNamespace
     @State private var showingSettings = false
-     
-     
+
     @State private var presentedCatalogStatus: CatalogStatus?
-     
+
     @ScaledMetric(relativeTo: .title) private var headerFlagSize: CGFloat = 32
     @ScaledMetric(relativeTo: .title) private var headerTitleSize: CGFloat = 26
     @ScaledMetric(relativeTo: .title) private var headerRowHeight: CGFloat = 38
@@ -101,10 +86,8 @@ struct RadioHomeView: View {
     @State private var miniPlayerHeight: CGFloat = 88
     @State private var shouldFollowBottomWhenMiniPlayerAppears = false
 
-     
-     
     private static let miniPlayerDrop: CGFloat = 10
-     
+
     private static let miniPlayerHorizontalInset: CGFloat = 16
 
     private var player: RadioAudioPlayer { store.player }
@@ -123,30 +106,21 @@ struct RadioHomeView: View {
         DistanceUnit(measurementSystem: locale.measurementSystem)
     }
 
-     
     private static let stationSpacing: CGFloat = 14
     private static let stationListBottomID = "station-list-bottom"
     private static let scrollBottomFollowTolerance: CGFloat = 48
 
-     
     private static let stationListTopMargin: CGFloat = 5
 
-     
-     
     private static let toolbarControlHeight: CGFloat = 44
 
     private static let searchAnimation: Animation = .smooth(duration: 0.32)
 
-     
-     
     private static let favoriteMenuDismissDelay: Duration = .milliseconds(650)
 
     private static let stationMinimumWidth: CGFloat = 320
     private static let stationContentHorizontalInset: CGFloat = 16
 
-     
-     
-     
     private func stationColumns(for availableWidth: CGFloat) -> [GridItem] {
         let spacing = Self.stationSpacing
         let count = max(
@@ -159,8 +133,6 @@ struct RadioHomeView: View {
         )
     }
 
-     
-     
     private var stationListTopInset: CGFloat {
         Self.stationListTopMargin
             + (!store.settings.showLocationHeader ? Self.stationSpacing : 0)
@@ -174,9 +146,7 @@ struct RadioHomeView: View {
                     stationList
                 }
             } else {
-                 
-                 
-                 
+
                 stationList
             }
         }
@@ -186,26 +156,22 @@ struct RadioHomeView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
-         
-         
+
         .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.bottom } action: {
             bottomSafeInset = $0
         }
-         
-         
+
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .background {
             if store.settings.showLocationHeader {
                 Palette.background.ignoresSafeArea()
             } else {
-                 
-                 
+
                 Color.clear.ignoresSafeArea()
             }
         }
         .animation(.easeInOut(duration: 0.3), value: showsMiniPlayer)
-         
-         
+
         .navigationTitle("Station List")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
@@ -224,8 +190,7 @@ struct RadioHomeView: View {
             SettingsView(store: store)
         }
         .onChange(of: showingSettings) { _, isShowing in
-             
-             
+
             if !isShowing {
                 store.revertToAutoIfManualLocationMissing()
             }
@@ -235,8 +200,6 @@ struct RadioHomeView: View {
         }
     }
 
-     
-     
     private var stationList: some View {
         GeometryReader { geometry in
             let gridWidth = max(0, geometry.size.width - Self.stationContentHorizontalInset * 2)
@@ -245,8 +208,7 @@ struct RadioHomeView: View {
             ScrollViewReader { scrollProxy in
                 ScrollView {
                     VStack(spacing: Self.stationSpacing) {
-                         
-                         
+
                         if !store.isNetworkAvailable && presentedCatalogStatus != .offline {
                             StatusBanner(
                                 message: String(localized: "No internet connection"),
@@ -269,31 +231,25 @@ struct RadioHomeView: View {
 
                         stationContent(columns: columns)
                     }
-                     
-                     
+
                     .padding(.horizontal, Self.stationContentHorizontalInset)
-                     
-                     
+
                     .id(Self.stationListBottomID)
                 }
-                 
+
                 .contentMargins(.top, stationListTopInset, for: .scrollContent)
                 .modifier(TopScrollEdgeEffect(hasLocationHeader: store.settings.showLocationHeader))
                 .background {
                     if store.settings.showLocationHeader {
                         Palette.background
                     } else {
-                         
+
                         Color.clear
                     }
                 }
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     ZStack(alignment: .bottom) {
-                         
-                         
-                         
-                         
-                         
+
                         Color.clear
                             .frame(height: 0)
                             .background(alignment: .bottom) {
@@ -308,7 +264,7 @@ struct RadioHomeView: View {
 
                         if showsMiniPlayer {
                             VStack(spacing: 0) {
-                                 
+
                                 Color.clear
                                     .frame(height: Self.stationSpacing)
 
@@ -317,14 +273,11 @@ struct RadioHomeView: View {
                                         miniPlayerHeight = $0
                                     }
                                     .padding(.horizontal, Self.miniPlayerHorizontalInset)
-                                     
-                                     
+
                                     .padding(.bottom, -Self.miniPlayerDrop)
-                                     
-                                     
+
                             }
-                             
-                             
+
                             .transition(
                                 .asymmetric(
                                     insertion: .offset(x: 0, y: 140).combined(with: .opacity),
@@ -342,15 +295,13 @@ struct RadioHomeView: View {
                     max(0, geometry.contentSize.height - geometry.visibleRect.maxY)
                         <= Self.scrollBottomFollowTolerance
                 } action: { _, isAtBottom in
-                     
-                     
+
                     if !showsMiniPlayer {
                         shouldFollowBottomWhenMiniPlayerAppears = isAtBottom
                     }
                 }
                 .onChange(of: showsMiniPlayer) { wasShowing, isShowing in
-                     
-                     
+
                     guard
                         !wasShowing,
                         isShowing,
@@ -359,8 +310,7 @@ struct RadioHomeView: View {
 
                     shouldFollowBottomWhenMiniPlayerAppears = false
                     Task { @MainActor in
-                         
-                         
+
                         try? await Task.sleep(for: .milliseconds(140))
                         guard showsMiniPlayer else { return }
                         withAnimation(.spring(response: 0.52, dampingFraction: 0.86)) {
@@ -372,9 +322,6 @@ struct RadioHomeView: View {
         }
     }
 
-     
-     
-     
     @MainActor
     private func syncCatalogStatus() async {
         guard let status = store.catalogStatus else {
@@ -388,7 +335,6 @@ struct RadioHomeView: View {
         withAnimation(.easeOut(duration: 0.2)) { presentedCatalogStatus = status }
     }
 
-     
     private var headerSection: some View {
         VStack(spacing: 0) {
             if showsLocationHeader {
@@ -396,8 +342,7 @@ struct RadioHomeView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
-         
-         
+
         .padding(.bottom, Self.stationSpacing)
         .background {
             if store.settings.showLocationHeader {
@@ -406,8 +351,6 @@ struct RadioHomeView: View {
         }
     }
 
-     
-     
     private var searchToolbarButton: some View {
         Button {
             openSearch()
@@ -420,15 +363,13 @@ struct RadioHomeView: View {
     }
 
     private func openSearch() {
-         
-         
+
         guard !searchIsActive else { return }
 
         withAnimation(Self.searchAnimation) {
             searchIsActive = true
         }
-         
-         
+
         searchFocused = true
     }
 
@@ -469,9 +410,6 @@ struct RadioHomeView: View {
         .glassEffectID("station-search-field", in: searchGlassNamespace)
     }
 
-     
-     
-     
     private var searchRow: some View {
         GlassEffectContainer(spacing: 12) {
             HStack(spacing: 12) {
@@ -496,8 +434,7 @@ struct RadioHomeView: View {
                 .foregroundStyle(colorScheme == .light ? Color.black : Color.white)
                 .frame(width: Self.toolbarControlHeight, height: Self.toolbarControlHeight)
         }
-         
-         
+
         .frame(width: Self.toolbarControlHeight, height: Self.toolbarControlHeight)
         .contentShape(Rectangle())
         .buttonStyle(.plain)
@@ -540,18 +477,13 @@ struct RadioHomeView: View {
                     .frame(height: headerRowHeight, alignment: .center)
             }
             if store.isLocationPending {
-                 
-                 
-                 
+
                 ProgressView()
                     .progressViewStyle(.circular)
                     .tint(accent)
                     .frame(height: headerRowHeight)
             } else {
-                 
-                 
-                 
-                 
+
                 let label = store.locationLabel
                 let retrievedAt = store.displayedLocationRetrievedAt
                 TimelineView(.periodic(from: .now, by: 30)) { context in
@@ -563,7 +495,7 @@ struct RadioHomeView: View {
                             .minimumScaleFactor(0.65)
                         let age = LocationAgePolicy.text(since: retrievedAt, now: context.date)
                         if let age {
-                             
+
                             Text(age)
                                 .font(.system(size: 13, weight: .medium))
                                 .foregroundStyle(.secondary)
@@ -588,14 +520,11 @@ struct RadioHomeView: View {
     private func stationContent(columns: [GridItem]) -> some View {
         let visibleStations = store.displayedStations
         if let status = presentedCatalogStatus {
-             
-             
+
             CatalogStatusView(status: status, onRetry: { store.refreshStations() })
                 .transition(.opacity.combined(with: .scale(scale: 0.98)))
         } else if store.settings.locationSource == .gps && store.locationCoordinate == nil {
-             
-             
-             
+
             LocationLoadingView()
                 .transition(.opacity.combined(with: .scale(scale: 0.98)))
         } else if store.isLoading && store.stations.isEmpty {
@@ -617,11 +546,7 @@ struct RadioHomeView: View {
                         accent: accent,
                         onPlay: { store.play(station) },
                         onFavorite: {
-                             
-                             
-                             
-                             
-                             
+
                             Task { @MainActor in
                                 try? await Task.sleep(for: Self.favoriteMenuDismissDelay)
                                 withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) {

@@ -1,12 +1,11 @@
 import Foundation
 import CoreLocation
 
- 
 enum LocationErrorPolicy {
     enum Action: Equatable {
-         
+
         case keepTrying
-         
+
         case stopTracking
     }
 
@@ -33,8 +32,6 @@ enum LocationUpdateTimingPolicy {
     }
 }
 
- 
- 
 // Copy CLLocation into Sendable scalar values before hopping from the delegate callback to the main actor.
 private struct LocationSample: Sendable {
     let latitude: Double
@@ -60,23 +57,6 @@ private struct LocationSample: Sendable {
     }
 }
 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
 /// Owns CLLocationManager and forwards rate-limited fixes, authorization changes, and failures to RadioStore.
 @MainActor
 final class LocationUpdateSource: NSObject, CLLocationManagerDelegate {
@@ -95,11 +75,9 @@ final class LocationUpdateSource: NSObject, CLLocationManagerDelegate {
         manager.delegate = self
         manager.desiredAccuracy = LocationRequestConfiguration.desiredAccuracy
         manager.distanceFilter = LocationRequestConfiguration.minimumDistance
-         
-         
+
         manager.pausesLocationUpdatesAutomatically = false
-         
-         
+
         manager.allowsBackgroundLocationUpdates = true
         manager.startUpdatingLocation()
     }
@@ -113,14 +91,11 @@ final class LocationUpdateSource: NSObject, CLLocationManagerDelegate {
         onFailure = nil
     }
 
-     
-
     nonisolated func locationManager(
         _ manager: CLLocationManager,
         didUpdateLocations locations: [CLLocation]
     ) {
-         
-         
+
         guard let latest = locations.last else { return }
         let sample = LocationSample(latest)
         Task { @MainActor [weak self] in
