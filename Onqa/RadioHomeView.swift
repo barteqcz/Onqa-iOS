@@ -105,6 +105,7 @@ struct RadioHomeView: View {
     }
 
     private static let stationSpacing: CGFloat = 14
+    private static let stationListTopID = "station-list-top"
     private static let stationListBottomID = "station-list-bottom"
     private static let scrollBottomFollowTolerance: CGFloat = 48
 
@@ -201,6 +202,11 @@ struct RadioHomeView: View {
         ScrollViewReader { scrollProxy in
             ScrollView {
                 VStack(spacing: Self.stationSpacing) {
+                    // Stable top anchor used when the user switches between automatic and manual locations.
+                    Color.clear
+                        .frame(height: 1)
+                        .id(Self.stationListTopID)
+
 
                     if !store.isNetworkAvailable && presentedCatalogStatus != .offline {
                         StatusBanner(
@@ -296,6 +302,15 @@ struct RadioHomeView: View {
                     shouldFollowBottomWhenMiniPlayerAppears = isAtBottom
                 }
             }
+            .onChange(of: store.settings.locationSource) { _, _ in
+                scrollStationListToTop(using: scrollProxy)
+            }
+            .onChange(of: showingSettings) { wasShowing, isShowing in
+                if wasShowing && !isShowing {
+                    // Also reset after returning from Settings, when the updated station list is visible again.
+                    scrollStationListToTop(using: scrollProxy)
+                }
+            }
             .onChange(of: showsMiniPlayer) { wasShowing, isShowing in
 
                 guard
@@ -313,6 +328,17 @@ struct RadioHomeView: View {
                         scrollProxy.scrollTo(Self.stationListBottomID, anchor: .bottom)
                     }
                 }
+            }
+        }
+    }
+
+    private func scrollStationListToTop(using proxy: ScrollViewProxy) {
+        shouldFollowBottomWhenMiniPlayerAppears = false
+        Task { @MainActor in
+            // Wait for SwiftUI to apply the new source and station data before resolving the scroll target.
+            await Task.yield()
+            withAnimation(.snappy(duration: 0.28)) {
+                proxy.scrollTo(Self.stationListTopID, anchor: .top)
             }
         }
     }
