@@ -165,7 +165,7 @@ extension RadioAudioPlayer {
                 self.updateNowPlaying()
             } catch {
                 // Artwork is optional; audio playback must not depend on image loading.
-                Log.playback.debug("Artwork unavailable: \\(error.localizedDescription, privacy: .public)")
+                Log.playback.debug("Artwork unavailable: \(error.localizedDescription, privacy: .public)")
             }
         }
     }
