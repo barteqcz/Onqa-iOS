@@ -33,7 +33,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     }
     private(set) var metadata: String?
 
-    /// A playback attempt remains active while the stream is buffering or reconnecting.
+     
     var hasActivePlayback: Bool {
         isPlaying || isBuffering || isReconnecting
     }
@@ -42,8 +42,8 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     var onPrevious: (() -> Void)?
     var onPlaybackActivityChange: (() -> Void)?
 
-    // A var, because after a media-services reset the old AVPlayer is no
-    // longer usable and is replaced (see handleMediaServicesReset).
+     
+     
     @ObservationIgnored private var player = AVPlayer()
     private var volumeFadeTask: Task<Void, Never>?
     private var reconnectTask: Task<Void, Never>?
@@ -51,24 +51,24 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     private var itemNotificationObservers: [NSObjectProtocol] = []
     private var playbackRequestID: UInt64 = 0
     private var shouldFadeInWhenPlaybackStarts = false
-    /// While one station replaces another, AVPlayer reports intermediate states
-    /// (old stream playing, then paused/waiting for the new one). Those are
-    /// ignored so the UI shows a single, steady buffering state until the new
-    /// stream is actually playing.
+     
+     
+     
+     
     private var holdsSwitchUI = false
     private var switchTargetItem: AVPlayerItem?
-    // Every fade (in, out, and the out-before-switch) shares one duration:
-    // 24 steps x 25 ms = 600 ms.
+     
+     
     private let volumeFadeSteps = 24
     private let volumeFadeStep: Duration = .milliseconds(25)
-    /// Reconnect attempts back off from 3 s up to 30 s while a stream keeps
-    /// failing, instead of retrying every 3 s indefinitely.
+     
+     
     private let reconnectBaseDelay: TimeInterval = 3
     private let reconnectMaxDelay: TimeInterval = 30
     private var reconnectFailures = 0
     private let stalledPlaybackRecoveryDelay: Duration = .seconds(10)
-    /// Set when an audio interruption (a call, an alarm) paused playback that
-    /// was active, so it can resume when the system says it should.
+     
+     
     private var resumeAfterInterruption = false
     private var routeChangeObserver: NSObjectProtocol?
     private var timeControlObservation: NSKeyValueObservation?
@@ -79,13 +79,13 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     private var audioSessionIsActive = false
     private var useHQForCurrentStation = true
     private var mediaServicesResetObserver: NSObjectProtocol?
-    /// After a user pause the audio session stays active for this long, so the
-    /// lock-screen and Control Center play button keep working. It is then
-    /// released so other apps' audio can resume.
+     
+     
+     
     private let pausedSessionGracePeriod: Duration = .seconds(120)
     private var audioSessionDeactivationTask: Task<Void, Never>?
-    /// Set by the store. Next/previous are only offered to the system when
-    /// there is another station to switch to.
+     
+     
     var hasMultipleStations = false {
         didSet {
             if oldValue != hasMultipleStations { updateRemoteCommandAvailability() }
@@ -113,8 +113,8 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
             }
         }
 
-        // Headphones unplugged or a Bluetooth output lost: pause, as the
-        // Human Interface Guidelines ask, and release the stream.
+         
+         
         routeChangeObserver = NotificationCenter.default.addObserver(
             forName: AVAudioSession.routeChangeNotification,
             object: AVAudioSession.sharedInstance(),
@@ -127,8 +127,8 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
             Task { @MainActor in self?.pauseAfterRouteLoss() }
         }
 
-        // The media server daemon can crash and restart. Every AVFoundation
-        // object is then stale and must be rebuilt.
+         
+         
         mediaServicesResetObserver = NotificationCenter.default.addObserver(
             forName: AVAudioSession.mediaServicesWereResetNotification,
             object: AVAudioSession.sharedInstance(),
@@ -138,16 +138,16 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         }
     }
 
-    /// Wires the current `player` to AVFoundation, MediaPlayer and the system
-    /// Now Playing session. Called at launch and again after a media-services
-    /// reset, when the player has been replaced.
+     
+     
+     
     private func configurePlayer() {
         player.automaticallyWaitsToMinimizeStalling = true
 
-        // Single-player app: publish through the app-wide Now Playing info
-        // center and remote command center. (MPNowPlayingSession's
-        // becomeActiveIfPossible fails silently, which left the Lock Screen
-        // and Dynamic Island without media controls.)
+         
+         
+         
+         
 
         timeControlObservation = Self.observeTimeControlStatus(of: player) { [weak self] in
             Task { @MainActor in
@@ -163,7 +163,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         let station = currentStation
         let wasActive = isPlaying || isBuffering || isReconnecting
 
-        // Invalidate every pending operation tied to the old player.
+         
         playbackRequestID &+= 1
         resumeAfterInterruption = false
         reconnectTask?.cancel()
@@ -203,7 +203,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         case .began:
             let wasActive = isPlaying || isBuffering || isReconnecting
             pause()
-            // pause() clears the flag, so set it afterwards.
+             
             resumeAfterInterruption = wasActive
         case .ended:
             let shouldRestart = resumeAfterInterruption && shouldResume
@@ -221,9 +221,9 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
 
     private func updatePlaybackState() {
         if holdsSwitchUI {
-            // Right after the item is replaced AVPlayer can still report
-            // .playing for a moment. Only release once the new item itself is
-            // ready, so the UI never flips playing -> buffering -> playing.
+             
+             
+             
             if player.timeControlStatus == .playing,
                let target = switchTargetItem,
                player.currentItem === target,
@@ -287,7 +287,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
             reconnectTask?.cancel()
             reconnectTask = nil
             isReconnecting = false
-            // A deliberate play starts a fresh series of reconnect attempts.
+             
             reconnectFailures = 0
         }
 
@@ -303,8 +303,8 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         shouldFadeInWhenPlaybackStarts = false
 
         guard let url = station.streamURL(useHQ: useHQ) else {
-            // Keep the selected station visible and continue retrying if its
-            // stream URL is temporarily unavailable in the catalog.
+             
+             
             player.volume = 0
             player.pause()
             player.replaceCurrentItem(with: nil)
@@ -313,8 +313,8 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
             metadataOutput = nil
             deactivateAudioSession()
             currentStation = station
-            // Drop the previous station's artwork so Now Playing never shows
-            // another station's logo next to this station's name.
+             
+             
             stationArtwork = nil
             loadArtwork(for: station)
             metadata = nil
@@ -328,9 +328,9 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
             return
         }
 
-        // A stream may still be audible while AVPlayer reports that it is
-        // waiting for data. Its volume, rather than timeControlStatus, tells
-        // us whether a fade-out is still needed before replacing the item.
+         
+         
+         
         let hasAudibleStream = player.currentItem != nil && player.volume > 0.001
 
         guard hasAudibleStream else {
@@ -338,9 +338,9 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
             return
         }
 
-        // Reflect the tap in the UI right away. Only the audio waits for the
-        // outgoing station's fade-out; the selection, mini player and buffering
-        // state should not lag behind the finger.
+         
+         
+         
         holdsSwitchUI = true
         currentStation = station
         stationArtwork = nil
@@ -484,8 +484,8 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         scheduleReconnect(for: station, useHQ: useHQ, requestID: requestID)
     }
 
-    /// Rebuild the active stream after connectivity returns. A stream can be
-    /// stuck waiting for data without ever entering the explicit reconnect state.
+     
+     
     func retryNow() {
         guard
             let station = currentStation,
@@ -497,8 +497,8 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         reconnectTask = nil
         stalledPlaybackTask?.cancel()
         stalledPlaybackTask = nil
-        // Connectivity just returned, so retry immediately and start the
-        // backoff series over.
+         
+         
         reconnectFailures = 0
         beginPlayback(
             station,
@@ -522,8 +522,8 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         }
     }
 
-    /// Keeps the session alive for a short grace period after a user pause,
-    /// then releases it. A new playback cancels the pending release.
+     
+     
     private func scheduleAudioSessionDeactivation() {
         audioSessionDeactivationTask?.cancel()
         guard audioSessionIsActive else { return }
@@ -575,9 +575,9 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         isBuffering = true
         isPlaying = false
 
-        // A station switch may still have the previous (now silent) item
-        // installed. Release it before attempting activation so a failed
-        // activation cannot leave a hidden player running underneath the error.
+         
+         
+         
         player.volume = 0
         player.pause()
         player.replaceCurrentItem(with: nil)
@@ -613,8 +613,8 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
                         item: observedItem
                     )
                 } else {
-                    // The item may become ready after the player already
-                    // reports .playing; re-evaluate so a held switch releases.
+                     
+                     
                     if self.playbackRequestID == requestID {
                         self.updatePlaybackState()
                     }
@@ -623,8 +623,8 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
             }
         }
 
-        // A stall is recoverable: AVPlayer automatically waits for data and resumes.
-        // Reconnect only when the item reports an actual playback failure.
+         
+         
         let failureObserver = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemFailedToPlayToEndTime,
             object: item,
@@ -641,9 +641,9 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         }
         itemNotificationObservers.append(failureObserver)
 
-        // AVPlayer normally resumes a stalled stream itself. If it remains
-        // waiting, rebuild the item after a grace period rather than buffering
-        // indefinitely. A successful resume cancels this recovery task.
+         
+         
+         
         let stalledObserver = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemPlaybackStalled,
             object: item,
@@ -715,8 +715,8 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     private func finishPause() {
         player.volume = 0
         player.pause()
-        // Release the current item so the HTTP stream connection is closed.
-        // resume() creates a fresh AVPlayerItem instead of continuing the old stream.
+         
+         
         player.replaceCurrentItem(with: nil)
         itemStatusObservation = nil
         removeItemNotificationObservers()
@@ -803,19 +803,19 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         updateRemoteCommandAvailability()
     }
 
-    // AVFoundation calls this on the output's delegate queue. The protocol
-    // requires a Sendable conformer, so it cannot be main-actor isolated.
+     
+     
     nonisolated func metadataOutput(
         _ output: AVPlayerItemMetadataOutput,
         didOutputTimedMetadataGroups groups: [AVTimedMetadataGroup],
         from track: AVPlayerItemTrack?
     ) {
-        // Streams publish several string items (title, station name, URL,
-        // genre ...). Only the ones that carry a track title are used. The
-        // strings are read here, on the delegate queue, so only Sendable
-        // Strings cross into the main actor and AVMetadataItem never does.
-        // (stringValue is deprecated, but timed-metadata items delivered by
-        // this output are already loaded, so the synchronous read is valid.)
+         
+         
+         
+         
+         
+         
         let title = groups
             .flatMap(\.items)
             .filter { StreamMetadata.isTrackTitle(identifier: $0.identifier?.rawValue) }
@@ -829,20 +829,20 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     }
 
     private func applyMetadata(_ title: String, from source: ObjectIdentifier) {
-        // A callback from a stream that has since been replaced must not
-        // overwrite the new station's metadata.
+         
+         
         guard let current = metadataOutput, ObjectIdentifier(current) == source else { return }
         metadata = title
         updateNowPlaying()
     }
 
-    // AVFoundation and MediaPlayer invoke these callbacks on their own
-    // background queues. Closures created inside this @MainActor class would
-    // be inferred as main-actor isolated and trip a runtime isolation check
-    // (a crash) the first time the system calls them, e.g. when the player
-    // starts playing about a second after a station is selected. Building
-    // them in nonisolated helpers keeps them off the main actor; each one
-    // hops to the main actor explicitly.
+     
+     
+     
+     
+     
+     
+     
     nonisolated private static func observeTimeControlStatus(
         of player: AVPlayer,
         handler: @escaping @Sendable () -> Void
