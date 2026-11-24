@@ -111,6 +111,29 @@ enum LocationNamePolicy {
     }
 }
 
+struct LocationNameRetryState: Equatable {
+    var failureCount = 0
+    var nextRetryAt: Date?
+    var isNameOutdated = false
+    var isStale = false
+
+    func isRetryAllowed(at now: Date = Date()) -> Bool {
+        guard let nextRetryAt else { return true }
+        return now >= nextRetryAt
+    }
+
+    mutating func recordFailure(at now: Date = Date()) {
+        if failureCount < Int.max { failureCount += 1 }
+        let delay = RetryBackoff.delay(afterFailures: failureCount, base: 5, cap: 300)
+        nextRetryAt = now.addingTimeInterval(delay)
+    }
+
+    mutating func resetBackoff() {
+        failureCount = 0
+        nextRetryAt = nil
+    }
+}
+
 enum LocationAgePolicy {
     /// Nothing is shown for a location confirmed less than a minute ago, so a
     /// fresh location has no extra text next to it.
@@ -459,7 +482,7 @@ extension RadioStore {
             if LocationNamePolicy.shouldRetryLookup(
                 hasName: nameIsCurrent,
                 isResolving: isResolvingLocationName,
-                isRetryAllowed: isNameLookupRetryAllowed,
+                isRetryAllowed: isNameLookupRetryAllowed(for: .gps),
                 appIsActive: isAppActive
             ) {
                 refreshLocationName(
@@ -485,7 +508,7 @@ extension RadioStore {
         } else {
             // Nobody sees the name in the background; skip the network and
             // geocoder rate limit, and refresh when the app is visible again.
-            isLocationNameStale = true
+            setLocationNameStale(true, for: .gps)
         }
         if movedEnough,
            hasConfirmedOnboardingThisSession,
@@ -497,42 +520,48 @@ extension RadioStore {
     /// Refreshes the city name after the app returns to the foreground if it
     /// was skipped in the background or a previous lookup failed.
     func refreshLocationNameIfNeeded() {
+        let source = settings.locationSource
         guard hasConfirmedOnboardingThisSession,
               !isResolvingLocationName,
               let coordinate = locationCoordinate else { return }
+
+        let retryState = locationNameRetryState(for: source)
         let hasName = hasResolvedLocationName
-        let retrievedAt = settings.locationSource == .manual
-            ? settings.manualCityGeocodedAt
-            : locationRetrievedAt
+        let retrievedAt = source == .manual ? settings.manualCityGeocodedAt : locationRetrievedAt
         let hasFreshGeocode = LocationNamePolicy.hasFreshGeocode(
             hasName: hasName,
             retrievedAt: retrievedAt
         )
-        let needsLookup = isLocationNameStale
+        let needsLookup = retryState.isStale
             || LocationNamePolicy.shouldRetryLookup(
-                hasName: hasFreshGeocode && !isLocationNameOutdated,
+                hasName: hasFreshGeocode && !retryState.isNameOutdated,
                 isResolving: isResolvingLocationName,
-                isRetryAllowed: isNameLookupRetryAllowed,
+                isRetryAllowed: retryState.isRetryAllowed(),
                 appIsActive: isAppActive
             )
-        guard needsLookup else { return }
-        refreshLocationName(
-            for: CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude),
-            saveManualCity: settings.locationSource == .manual,
-            keepsCurrentName: hasName
-        )
+
+        if needsLookup {
+            refreshLocationName(
+                for: CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude),
+                saveManualCity: source == .manual,
+                keepsCurrentName: hasName
+            )
+        } else {
+            scheduleLocationNameRetry(for: source)
+        }
     }
 
     /// Retry the current city's lookup immediately after connectivity returns.
     /// The last successful name and timestamp remain visible while it retries.
     func retryLocationNameAfterReconnect() {
+        let source = settings.locationSource
         cancelLocationNameRetry()
-        resetNameLookupBackoff()
+        resetNameLookupBackoff(for: source)
         guard hasConfirmedOnboardingThisSession, locationCoordinate != nil else { return }
         locationLookupID &+= 1
         cancelReverseGeocoding()
         isResolvingLocationName = false
-        isLocationNameStale = true
+        setLocationNameStale(true, for: source)
         refreshLocationNameIfNeeded()
     }
 
@@ -563,11 +592,6 @@ extension RadioStore {
         configureLocationUpdates()
         if isActive {
             refreshLocationNameIfNeeded()
-            // If a retry was deferred while the app was backgrounded, resume
-            // its remaining backoff rather than waiting for another GPS fix.
-            if nextNameLookupDate != nil {
-                scheduleLocationNameRetry()
-            }
         }
     }
 
@@ -777,6 +801,11 @@ extension RadioStore {
         completesOnboarding: Bool = false
     ) {
         let wasAlreadyManual = settings.locationSource == .manual
+        let manualCoordinateChanged = settings.manualLatitude != coordinate.latitude
+            || settings.manualLongitude != coordinate.longitude
+        if manualCoordinateChanged {
+            resetNameLookupBackoff(for: .manual)
+        }
         var value = settings
         value.locationSource = .manual
         value.manualLatitude = coordinate.latitude
@@ -834,11 +863,7 @@ extension RadioStore {
             locationCountryCode = lastAutomaticLocationCountryCode
             locationRetrievedAt = lastAutomaticLocationRetrievedAt
         }
-        refreshLocationName(
-            for: CLLocation(latitude: latitude, longitude: longitude),
-            saveManualCity: true,
-            keepsCurrentName: hasResolvedLocationName
-        )
+        refreshLocationNameIfNeeded()
     }
 
     func effectiveCoordinate() -> CLLocationCoordinate2D? {
@@ -857,52 +882,82 @@ extension RadioStore {
         reverseGeocodingRequest = nil
     }
 
-    /// A lookup that fails (offline, or no city at that point) is retried with
-    /// exponential backoff rather than on every location update.
-    var isNameLookupRetryAllowed: Bool {
-        guard let next = nextNameLookupDate else { return true }
-        return Date() >= next
+    func locationNameRetryState(for source: LocationSource) -> LocationNameRetryState {
+        source == .manual ? manualLocationNameRetryState : gpsLocationNameRetryState
     }
 
-    private func recordNameLookupFailure() {
-        nameLookupFailures += 1
-        let delay = RetryBackoff.delay(
-            afterFailures: nameLookupFailures,
-            base: 5,
-            cap: 300
-        )
-        nextNameLookupDate = Date().addingTimeInterval(delay)
+    func updateLocationNameRetryState(
+        for source: LocationSource,
+        _ update: (inout LocationNameRetryState) -> Void
+    ) {
+        if source == .manual {
+            update(&manualLocationNameRetryState)
+        } else {
+            update(&gpsLocationNameRetryState)
+        }
     }
 
-    private func resetNameLookupBackoff() {
-        nameLookupFailures = 0
-        nextNameLookupDate = nil
+    var isLocationNameOutdated: Bool {
+        locationNameRetryState(for: settings.locationSource).isNameOutdated
+    }
+
+    var isLocationNameStale: Bool {
+        locationNameRetryState(for: settings.locationSource).isStale
+    }
+
+    func setLocationNameOutdated(_ value: Bool, for source: LocationSource) {
+        updateLocationNameRetryState(for: source) { $0.isNameOutdated = value }
+    }
+
+    func setLocationNameStale(_ value: Bool, for source: LocationSource) {
+        updateLocationNameRetryState(for: source) { $0.isStale = value }
+    }
+
+    func isNameLookupRetryAllowed(for source: LocationSource) -> Bool {
+        locationNameRetryState(for: source).isRetryAllowed()
+    }
+
+    private func recordNameLookupFailure(for source: LocationSource) {
+        updateLocationNameRetryState(for: source) { $0.recordFailure() }
+    }
+
+    private func resetNameLookupBackoff(for source: LocationSource) {
+        updateLocationNameRetryState(for: source) { $0.resetBackoff() }
     }
 
     func cancelLocationNameRetry() {
+        locationNameRetryGeneration &+= 1
         locationNameRetryTask?.cancel()
         locationNameRetryTask = nil
+        locationNameRetryTaskSource = nil
     }
 
-    /// Keep retrying failed geocoding while the app is visible. NWPathMonitor
-    /// can remain satisfied when Wi-Fi is connected but internet access is
-    /// unavailable, and a stationary GPS device may not produce another fix.
-    private func scheduleLocationNameRetry() {
+    /// Only the selected mode owns an active timer. Inactive mode retains its
+    /// failure count and absolute retry deadline while paused.
+    private func scheduleLocationNameRetry(for source: LocationSource) {
         cancelLocationNameRetry()
-        guard isAppActive,
+        guard settings.locationSource == source,
+              isAppActive,
               hasConfirmedOnboardingThisSession,
               locationCoordinate != nil,
-              let retryAt = nextNameLookupDate else { return }
+              let retryAt = locationNameRetryState(for: source).nextRetryAt else { return }
 
         let delay = max(0, retryAt.timeIntervalSinceNow) + 0.25
+        let generation = locationNameRetryGeneration
+        locationNameRetryTaskSource = source
         locationNameRetryTask = Task { [weak self] in
             do {
                 try await Task.sleep(for: .seconds(delay))
             } catch {
                 return
             }
-            guard let self, !Task.isCancelled else { return }
+            guard let self,
+                  !Task.isCancelled,
+                  self.locationNameRetryGeneration == generation,
+                  self.locationNameRetryTaskSource == source,
+                  self.settings.locationSource == source else { return }
             self.locationNameRetryTask = nil
+            self.locationNameRetryTaskSource = nil
             guard self.isAppActive,
                   self.hasConfirmedOnboardingThisSession,
                   self.locationCoordinate != nil else { return }
@@ -915,6 +970,9 @@ extension RadioStore {
         saveManualCity: Bool,
         keepsCurrentName: Bool = false
     ) {
+        let sourceAtRequest = settings.locationSource
+        guard (sourceAtRequest == .manual) == saveManualCity else { return }
+
         cancelLocationNameRetry()
         locationLookupID &+= 1
         let requestID = locationLookupID
@@ -923,27 +981,29 @@ extension RadioStore {
             locationCountryCode = nil
         }
         isResolvingLocationName = true
-        isLocationNameStale = false
+        setLocationNameStale(false, for: sourceAtRequest)
         cancelReverseGeocoding()
 
         reverseGeocodingTask = Task { [weak self] in
             guard let self else { return }
             let result = await self.reverseGeocode(location)
-            guard !Task.isCancelled, requestID == self.locationLookupID else { return }
-            // Both automatic and map-selected city lookups retain the last
-            // successful name/time on failure and retry after backoff.
+            // Ignore completions from an inactive mode or superseded coordinate.
+            guard !Task.isCancelled,
+                  requestID == self.locationLookupID,
+                  self.settings.locationSource == sourceAtRequest else { return }
+
             if result.name == nil {
-                self.recordNameLookupFailure()
+                self.recordNameLookupFailure(for: sourceAtRequest)
             } else {
-                self.resetNameLookupBackoff()
+                self.resetNameLookupBackoff(for: sourceAtRequest)
             }
             let keepsLastKnownName = result.name == nil
                 && keepsCurrentName
                 && self.hasResolvedLocationName
-            let previousName = saveManualCity
+            let previousName = sourceAtRequest == .manual
                 ? (self.settings.manualCity ?? self.locationName)
                 : self.locationName
-            let previousCountryCode = saveManualCity
+            let previousCountryCode = sourceAtRequest == .manual
                 ? (self.settings.manualCountryCode ?? self.locationCountryCode)
                 : self.locationCountryCode
             let resolvedCountryCode = result.countryCode
@@ -951,21 +1011,19 @@ extension RadioStore {
             let retrievedAt = Date()
             self.locationCountryCode = resolvedCountryCode
             if keepsLastKnownName {
-                self.isLocationNameOutdated = true
+                self.setLocationNameOutdated(true, for: sourceAtRequest)
             } else {
-                self.isLocationNameOutdated = false
+                self.setLocationNameOutdated(false, for: sourceAtRequest)
                 self.locationName = result.name
                 self.locationRetrievedAt = result.name == nil ? nil : retrievedAt
             }
             self.isResolvingLocationName = false
             self.reverseGeocodingTask = nil
-            if self.settings.locationSource == .gps, !keepsLastKnownName {
+            if sourceAtRequest == .gps, !keepsLastKnownName {
                 self.lastAutomaticLocationName = result.name
                 self.lastAutomaticLocationCountryCode = resolvedCountryCode
                 self.lastAutomaticLocationRetrievedAt = self.locationRetrievedAt
-                if !saveManualCity, let name = result.name {
-                    // Saved together with the position this name was resolved
-                    // for, so the pair never goes out of sync.
+                if let name = result.name {
                     SavedLocationStorage.save(SavedLocation(
                         coordinate: location.coordinate,
                         name: name,
@@ -974,7 +1032,7 @@ extension RadioStore {
                     ))
                 }
             }
-            if saveManualCity {
+            if sourceAtRequest == .manual {
                 var value = self.settings
                 if let name = result.name {
                     value.manualCity = name
@@ -984,7 +1042,7 @@ extension RadioStore {
                 self.settings = value
             }
             if result.name == nil {
-                self.scheduleLocationNameRetry()
+                self.scheduleLocationNameRetry(for: sourceAtRequest)
             }
         }
     }
