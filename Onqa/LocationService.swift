@@ -11,10 +11,13 @@ enum LocationPresentation {
         hasName: Bool,
         hasCoordinate: Bool
     ) -> Bool {
+        // Once coordinates are available, keep the last known label and age
+        // visible while reverse geocoding runs. A lookup is not a location fix.
+        guard !hasCoordinate else { return false }
         guard !hasName else { return false }
         if resolvingName { return true }
         guard !permissionDenied else { return false }
-        return source == .gps && !hasCoordinate
+        return source == .gps
     }
 }
 
@@ -172,16 +175,29 @@ extension RadioStore {
         return String(localized: "Finding your location…")
     }
 
-    /// When the shown automatic location was last confirmed, or nil when it
-    /// has no age to show. Manual locations are chosen by the person and are
-    /// never retrieved.
+    /// When the currently displayed location information was last confirmed.
+    /// The timestamp is retained when a newer coordinate cannot be reverse
+    /// geocoded, and manual map selections use their own persisted timestamp.
     var displayedLocationRetrievedAt: Date? {
-        guard settings.locationSource == .gps, locationName != nil else { return nil }
+        if settings.locationSource == .manual {
+            let hasManualCity = settings.manualCity?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .isEmpty == false
+            if hasManualCity {
+                return settings.manualLocationRetrievedAt ?? locationRetrievedAt
+            }
+            if locationName?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .isEmpty == false {
+                return locationRetrievedAt
+            }
+            return settings.manualLocationRetrievedAt ?? locationRetrievedAt
+        }
         return locationRetrievedAt
     }
 
-    /// How long ago the shown automatic location was confirmed, or nil when
-    /// nothing should be shown.
+    /// How long ago the last known location information was confirmed, or nil
+    /// when no coordinate or resolved location has a timestamp.
     func locationAgeText(now: Date = Date()) -> String? {
         LocationAgePolicy.text(since: displayedLocationRetrievedAt, now: now)
     }
@@ -383,7 +399,10 @@ extension RadioStore {
     }
 
     private var hasResolvedLocationName: Bool {
-        locationName?
+        let currentName = settings.locationSource == .manual
+            ? (settings.manualCity ?? locationName)
+            : locationName
+        return currentName?
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .isEmpty == false
     }
@@ -393,6 +412,13 @@ extension RadioStore {
         guard LocationFixQuality.isUsable(horizontalAccuracy: location.horizontalAccuracy) else { return }
 
         let hasLocationName = hasResolvedLocationName
+        // Keep an age even before the first city lookup succeeds. Once a city
+        // is known, its timestamp is only advanced by a successful lookup (or
+        // a stationary fix that confirms the same city).
+        if locationRetrievedAt == nil {
+            locationRetrievedAt = location.timestamp
+            lastAutomaticLocationRetrievedAt = location.timestamp
+        }
         let movedEnough = StationProcessor.shouldProcessLocationUpdate(
             from: locationCoordinate,
             to: location.coordinate,
@@ -452,8 +478,7 @@ extension RadioStore {
     /// Refreshes the city name after the app returns to the foreground if it
     /// was skipped in the background or a previous lookup failed.
     func refreshLocationNameIfNeeded() {
-        guard settings.locationSource == .gps,
-              hasConfirmedOnboardingThisSession,
+        guard hasConfirmedOnboardingThisSession,
               !isResolvingLocationName,
               let coordinate = locationCoordinate else { return }
         let hasName = hasResolvedLocationName
@@ -467,16 +492,21 @@ extension RadioStore {
         guard needsLookup else { return }
         refreshLocationName(
             for: CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude),
-            saveManualCity: false,
+            saveManualCity: settings.locationSource == .manual,
             keepsCurrentName: hasName
         )
     }
 
-    /// Called when connectivity returns. A city lookup that failed while offline
-    /// used to be retried on the next (even stationary) location update; with a
-    /// distance filter a device that is not moving gets none, so retry here.
+    /// Called when connectivity returns. Retry the current coordinate for both
+    /// GPS and map-selected locations. Cancel an in-flight offline request so a
+    /// reconnect that happens just before its failure cannot be missed.
     func retryLocationNameAfterReconnect() {
         resetNameLookupBackoff()
+        guard hasConfirmedOnboardingThisSession, locationCoordinate != nil else { return }
+        locationLookupID &+= 1
+        cancelReverseGeocoding()
+        isResolvingLocationName = false
+        isLocationNameStale = true
         refreshLocationNameIfNeeded()
     }
 
@@ -715,12 +745,19 @@ extension RadioStore {
         _ coordinate: CLLocationCoordinate2D,
         completesOnboarding: Bool = false
     ) {
-        let wasAlreadyManual = settings.locationSource == .manual
+        // Keep the last successfully resolved city and its timestamp visible
+        // until the newly selected point can be reverse geocoded. If there is
+        // no cached city yet, age the selected coordinate itself.
+        let hasKnownName = (settings.manualCity ?? locationName)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .isEmpty == false
         var value = settings
         value.locationSource = .manual
         value.manualLatitude = coordinate.latitude
         value.manualLongitude = coordinate.longitude
-        value.manualCity = nil
+        if !hasKnownName && value.manualLocationRetrievedAt == nil {
+            value.manualLocationRetrievedAt = Date()
+        }
         if completesOnboarding {
             value.onboardingCompleted = true
         }
@@ -732,44 +769,45 @@ extension RadioStore {
             configureLocationUpdates()
         }
 
-        if wasAlreadyManual {
-            refreshLocationName(
-                for: CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude),
-                saveManualCity: true
-            )
-            Task { await loadStations(at: coordinate) }
-        }
+        // Always resolve the selected point, including the first manual
+        // selection during onboarding (where the source change happens before
+        // the session is confirmed and cannot trigger loadManualCoordinate).
+        refreshLocationName(
+            for: CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude),
+            saveManualCity: true,
+            keepsCurrentName: hasKnownName
+        )
+        Task { await loadStations(at: coordinate) }
     }
+
     func loadManualCoordinate() {
         guard let latitude = settings.manualLatitude, let longitude = settings.manualLongitude else {
             locationCoordinate = nil
-            locationName = nil
-            locationCountryCode = nil
-            locationRetrievedAt = nil
             if settings.manualCity != nil {
                 var value = settings
                 value.manualCity = nil
+                value.manualLocationRetrievedAt = nil
                 settings = value
+            }
+            // Keep the last automatic city as a fallback until a manual point
+            // is selected, rather than clearing the only usable location label.
+            if locationName == nil {
+                locationName = lastAutomaticLocationName
+                locationCountryCode = lastAutomaticLocationCountryCode
+                locationRetrievedAt = lastAutomaticLocationRetrievedAt
             }
             return
         }
 
-        // A cached city can be stale if reverse geocoding no longer identifies
-        // this point (for example, when the saved point is offshore).
-        if settings.manualCity != nil {
-            var value = settings
-            value.manualCity = nil
-            settings = value
-        }
-
-        locationName = nil
-        locationCountryCode = nil
-        locationRetrievedAt = nil
+        // The cached manual city belongs to the saved manual coordinate.
+        // Keep it on screen with its original age while checking for an update;
+        // a failed offline lookup must not replace it with "Unknown location".
         let coordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
         locationCoordinate = coordinate
         refreshLocationName(
             for: CLLocation(latitude: latitude, longitude: longitude),
-            saveManualCity: true
+            saveManualCity: true,
+            keepsCurrentName: hasResolvedLocationName
         )
     }
 
@@ -830,30 +868,31 @@ extension RadioStore {
             guard let self else { return }
             let result = await self.reverseGeocode(location)
             guard !Task.isCancelled, requestID == self.locationLookupID else { return }
-            // Only the automatic (GPS) path can loop on failures; manual
-            // lookups are one-off.
-            if !saveManualCity {
-                if result.name == nil {
-                    self.recordNameLookupFailure()
-                } else {
-                    self.resetNameLookupBackoff()
-                }
+            // Both automatic and map-selected locations retry after a failed
+            // lookup. Keep the previous successful city and timestamp intact.
+            if result.name == nil {
+                self.recordNameLookupFailure()
+            } else {
+                self.resetNameLookupBackoff()
             }
-            // A failed automatic lookup (offline, or no city found) keeps the
-            // last known name on screen; its counter shows how old it is. It
-            // is retried later, and is only dropped if there was none before.
             let keepsLastKnownName = result.name == nil
                 && keepsCurrentName
-                && !saveManualCity
-                && self.locationName != nil
+                && self.hasResolvedLocationName
             let retrievedAt = Date()
             if keepsLastKnownName {
                 self.isLocationNameOutdated = true
             } else {
                 self.isLocationNameOutdated = false
-                self.locationName = result.name
-                self.locationCountryCode = result.countryCode
-                self.locationRetrievedAt = result.name == nil ? nil : retrievedAt
+                if let name = result.name {
+                    self.locationName = name
+                    self.locationCountryCode = result.countryCode
+                    self.locationRetrievedAt = retrievedAt
+                } else {
+                    self.locationName = nil
+                    self.locationCountryCode = nil
+                    // Do not clear locationRetrievedAt: it dates the last
+                    // known coordinate even when no city can be resolved.
+                }
             }
             self.isResolvingLocationName = false
             self.reverseGeocodingTask = nil
@@ -872,9 +911,10 @@ extension RadioStore {
                     ))
                 }
             }
-            if saveManualCity {
+            if saveManualCity, let name = result.name {
                 var value = self.settings
-                value.manualCity = result.name
+                value.manualCity = name
+                value.manualLocationRetrievedAt = retrievedAt
                 self.settings = value
             }
         }
