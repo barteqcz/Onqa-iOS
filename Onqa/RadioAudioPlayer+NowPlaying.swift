@@ -70,7 +70,7 @@ extension RadioAudioPlayer: MediaSessionRepresentable {
 
                 self.stationArtworkData = artworkData
             } catch {
-                Log.playback.debug("Artwork unavailable: \\(error.localizedDescription, privacy: .public)")
+                Log.playback.debug("Artwork unavailable: \(error.localizedDescription, privacy: .public)")
             }
         }
     }
