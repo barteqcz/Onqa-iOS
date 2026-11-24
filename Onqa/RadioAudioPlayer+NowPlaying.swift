@@ -3,6 +3,106 @@ import MediaPlayer
 import UIKit
 import os
 
+/// Produces a bounded, square bitmap for system Now Playing artwork.
+///
+/// SVGs arrive here after WebKit has rasterized them. Normalizing every logo
+/// to the same 512 px canvas gives CarPlay and other system accessories a
+/// predictable image even when the original SVG has unusual dimensions.
+/// MediaPlayer asks its request handler for different sizes, so each response
+/// is rasterized to the requested dimensions instead of returning the original
+/// full-size image for every request.
+enum NowPlayingArtworkFactory {
+    private static let maximumPixelSide = 512
+    private static let boundsSize = CGSize(width: 512, height: 512)
+
+    @MainActor
+    static func makeArtwork(from image: UIImage) -> MPMediaItemArtwork {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = false
+
+        let normalized = UIGraphicsImageRenderer(size: boundsSize, format: format).image { renderer in
+            let canvas = CGRect(origin: .zero, size: boundsSize)
+            renderer.cgContext.clear(canvas)
+
+            let sourceSize = image.size
+            guard sourceSize.width > 0, sourceSize.height > 0 else { return }
+
+            let scale = min(
+                boundsSize.width / sourceSize.width,
+                boundsSize.height / sourceSize.height
+            )
+            let fittedSize = CGSize(
+                width: sourceSize.width * scale,
+                height: sourceSize.height * scale
+            )
+            let fittedRect = CGRect(
+                x: (boundsSize.width - fittedSize.width) / 2,
+                y: (boundsSize.height - fittedSize.height) / 2,
+                width: fittedSize.width,
+                height: fittedSize.height
+            )
+            image.draw(in: fittedRect)
+        }
+
+        guard let source = normalized.cgImage else {
+            return MPMediaItemArtwork(boundsSize: boundsSize) { @Sendable _ in normalized }
+        }
+
+        return MPMediaItemArtwork(boundsSize: boundsSize) { @Sendable requestedSize in
+            func pixelDimension(_ value: CGFloat) -> Int {
+                guard value.isFinite else { return Self.maximumPixelSide }
+                return Int(min(
+                    CGFloat(Self.maximumPixelSide),
+                    max(1, value.rounded(.up))
+                ))
+            }
+
+            let width = pixelDimension(requestedSize.width)
+            let height = pixelDimension(requestedSize.height)
+            guard let context = CGContext(
+                data: nil,
+                width: width,
+                height: height,
+                bitsPerComponent: 8,
+                bytesPerRow: width * 4,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ) else {
+                return normalized
+            }
+
+            let canvas = CGRect(x: 0, y: 0, width: width, height: height)
+            context.clear(canvas)
+            context.interpolationQuality = .high
+
+            let scale = min(
+                CGFloat(width) / CGFloat(source.width),
+                CGFloat(height) / CGFloat(source.height)
+            )
+            let fittedSize = CGSize(
+                width: CGFloat(source.width) * scale,
+                height: CGFloat(source.height) * scale
+            )
+            let fittedRect = CGRect(
+                x: (CGFloat(width) - fittedSize.width) / 2,
+                y: (CGFloat(height) - fittedSize.height) / 2,
+                width: fittedSize.width,
+                height: fittedSize.height
+            )
+
+            // Core Graphics uses a lower-left origin; flip the bitmap context
+            // so the returned UIImage has the same upright orientation.
+            context.translateBy(x: 0, y: CGFloat(height))
+            context.scaleBy(x: 1, y: -1)
+            context.draw(source, in: fittedRect)
+
+            guard let rendered = context.makeImage() else { return normalized }
+            return UIImage(cgImage: rendered, scale: 1, orientation: .up)
+        }
+    }
+}
+
 extension RadioAudioPlayer {
     nonisolated private static func addRemoteCommand(
         _ command: MPRemoteCommand,
@@ -61,19 +161,13 @@ extension RadioAudioPlayer {
                     let image
                 else { return }
 
-                self.stationArtwork = Self.makeArtwork(image)
+                self.stationArtwork = NowPlayingArtworkFactory.makeArtwork(from: image)
                 self.updateNowPlaying()
             } catch {
                 // Artwork is optional; audio playback must not depend on image loading.
-                Log.playback.debug("Artwork unavailable: \(error.localizedDescription, privacy: .public)")
+                Log.playback.debug("Artwork unavailable: \\(error.localizedDescription, privacy: .public)")
             }
         }
-    }
-
-    nonisolated private static func makeArtwork(_ image: UIImage) -> MPMediaItemArtwork {
-        // MediaPlayer calls this handler on its own background queue, possibly
-        // many times. Keep it trivial: no resizing or other work in here.
-        MPMediaItemArtwork(boundsSize: image.size) { @Sendable _ in image }
     }
 
     /// Offers the system only the commands that can act right now, instead of
