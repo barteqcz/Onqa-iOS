@@ -78,3 +78,29 @@ struct EmptyStationsView: View {
         .overlay(RoundedRectangle(cornerRadius: 30, style: .continuous).stroke(Palette.outline, lineWidth: 1))
     }
 }
+struct StatusBanner: View {
+    let message: String
+    let systemImage: String
+    var tint: Color = .orange
+    var actionTitle: String?
+    var action: (() -> Void)?
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: systemImage)
+            Text(message)
+                .font(.caption.weight(.medium))
+                .lineLimit(2)
+            Spacer(minLength: 4)
+            if let actionTitle, let action {
+                Button(actionTitle, action: action)
+                    .font(.caption.weight(.bold))
+            }
+        }
+        .foregroundStyle(tint)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+}
+
