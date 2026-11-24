@@ -319,15 +319,17 @@ struct RadioHomeView: View {
                                     // Sits slightly below the safe-area edge, nearer
                                     // the home indicator.
                                     .padding(.bottom, -Self.miniPlayerDrop)
-                                    .transition(
-                                        .asymmetric(
-                                            insertion: .offset(x: 0, y: 140).combined(with: .opacity),
-                                            removal: .move(edge: .bottom).combined(with: .opacity)
-                                        )
-                                    )
                                     // Its container ignores the keyboard safe area,
                                     // keeping the player anchored to its normal position.
                             }
+                            // The conditional inserts/removes this whole stack,
+                            // so the transition belongs here (not on its child).
+                            .transition(
+                                .asymmetric(
+                                    insertion: .offset(x: 0, y: 140).combined(with: .opacity),
+                                    removal: .move(edge: .bottom).combined(with: .opacity)
+                                )
+                            )
                         }
                     }
                 }
