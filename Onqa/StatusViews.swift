@@ -3,12 +3,12 @@ import MapKit
 import UIKit
 import Observation
 
-// MARK: - Misc components
+ 
 
-/// Card shown in the list area, in place of the loading spinner and the "No
-/// stations found" card, while the station catalog downloads or, on the very
-/// first launch, when there is no internet connection to download it with.
-/// It uses the same surface as `EmptyStationsView` so the swap is seamless.
+ 
+ 
+ 
+ 
 struct CatalogStatusView: View {
     let status: CatalogStatus
     let onRetry: () -> Void
@@ -38,7 +38,7 @@ struct CatalogStatusView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
-                // Standard system button, neutral rather than accent-colored.
+                 
                 Button("Retry", action: onRetry)
                     .buttonStyle(.bordered)
                     .tint(Color.primary)
