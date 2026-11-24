@@ -755,7 +755,8 @@ extension RadioStore {
         value.locationSource = .manual
         value.manualLatitude = coordinate.latitude
         value.manualLongitude = coordinate.longitude
-        if !hasKnownName && value.manualLocationRetrievedAt == nil {
+        if !hasKnownName {
+            // A new unnamed map selection starts a fresh coordinate-age timer.
             value.manualLocationRetrievedAt = Date()
         }
         if completesOnboarding {
