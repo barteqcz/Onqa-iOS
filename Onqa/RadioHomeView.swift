@@ -242,7 +242,8 @@ struct RadioHomeView: View {
 
             ScrollViewReader { scrollProxy in
                 ScrollView {
-                    VStack(spacing: Self.stationSpacing) {
+                    VStack(spacing: 0) {
+                        VStack(spacing: Self.stationSpacing) {
                         // The offline card already explains the state, so avoid
                         // showing a duplicate banner above it.
                         if !store.isNetworkAvailable && presentedCatalogStatus != .offline {
@@ -271,9 +272,10 @@ struct RadioHomeView: View {
 
                     // A zero-height target keeps the list's true bottom at the
                     // final card, without adding visual or scrollable padding.
-                    Color.clear
-                        .frame(height: 0)
-                        .id(Self.stationListBottomID)
+                        Color.clear
+                            .frame(height: 0)
+                            .id(Self.stationListBottomID)
+                    }
                 }
                 // Keep a small inset so the first station's outline is not clipped.
                 .contentMargins(.top, stationListTopInset, for: .scrollContent)
