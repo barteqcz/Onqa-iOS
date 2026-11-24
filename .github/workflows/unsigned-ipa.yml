@@ -1,7 +1,15 @@
 name: Unsigned iOS IPA
 
 on:
-  # Run manually from the Actions tab ("Run workflow").
+  # Validate playback changes automatically, while keeping manual builds available.
+  push:
+    branches:
+      - main
+    paths:
+      - "Onqa/RadioAudioPlayer.swift"
+      - "Onqa/RadioAudioPlayer+NowPlaying.swift"
+      - "project.yml"
+      - ".github/workflows/unsigned-ipa.yml"
   workflow_dispatch:
 
 permissions:
