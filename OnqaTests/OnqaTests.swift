@@ -114,8 +114,8 @@ struct OnqaTests {
         ))
     }
 
-    @Test func manualLocationShowsLoadingWhileReverseGeocodingWithoutGPSPermission() {
-        #expect(LocationPresentation.isPending(
+    @Test func manualLocationKeepsLabelVisibleWhileReverseGeocodingWithoutGPSPermission() {
+        #expect(!LocationPresentation.isPending(
             source: .manual,
             permissionDenied: true,
             resolvingName: true,
