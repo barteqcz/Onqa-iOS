@@ -164,6 +164,41 @@ struct ReliabilityTests {
         #expect(square.size == CGSize(width: 256, height: 256))
     }
 
+    @Test @MainActor func nowPlayingArtworkPreservesVerticalOrientation() throws {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = true
+        let source = UIGraphicsImageRenderer(size: CGSize(width: 512, height: 512), format: format).image { renderer in
+            UIColor.systemRed.setFill()
+            renderer.fill(CGRect(x: 0, y: 0, width: 512, height: 256))
+            UIColor.systemBlue.setFill()
+            renderer.fill(CGRect(x: 0, y: 256, width: 512, height: 256))
+        }
+
+        let artwork = NowPlayingArtworkFactory.makeArtwork(from: source)
+        let renderedArtwork = try #require(artwork.image(at: CGSize(width: 512, height: 512)))
+
+        func rasterizedPixels(_ image: UIImage) throws -> (Data, Int) {
+            let rendered = UIGraphicsImageRenderer(size: CGSize(width: 512, height: 512), format: format).image { _ in
+                image.draw(in: CGRect(x: 0, y: 0, width: 512, height: 512))
+            }
+            let cgImage = try #require(rendered.cgImage)
+            let data = try #require(cgImage.dataProvider?.data as Data?)
+            return (data, cgImage.bytesPerRow)
+        }
+
+        func pixel(_ raster: (Data, Int), x: Int, y: Int) -> [UInt8] {
+            let offset = y * raster.1 + x * 4
+            return Array(raster.0[offset ..< offset + 4])
+        }
+
+        let original = try rasterizedPixels(source)
+        let output = try rasterizedPixels(renderedArtwork)
+        #expect(pixel(output, x: 256, y: 64) == pixel(original, x: 256, y: 64))
+        #expect(pixel(output, x: 256, y: 448) == pixel(original, x: 256, y: 448))
+        #expect(pixel(original, x: 256, y: 64) != pixel(original, x: 256, y: 448))
+    }
+
     // MARK: Fix quality
 
     @Test func onlyInvalidFixesAreRejected() {
