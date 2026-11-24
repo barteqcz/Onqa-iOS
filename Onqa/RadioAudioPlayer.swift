@@ -1,6 +1,6 @@
 import Foundation
 import AVFoundation
-import MediaPlayer
+import NowPlaying
 import Observation
 import os
 
@@ -66,7 +66,8 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     private var timeControlObservation: NSKeyValueObservation?
     private var itemStatusObservation: NSKeyValueObservation?
     private var metadataOutput: AVPlayerItemMetadataOutput?
-    var stationArtwork: MPMediaItemArtwork?
+    var stationArtworkData: Data?
+    var nowPlayingSession: MediaSession<RadioAudioPlayer>?
     private var interruptionObserver: NSObjectProtocol?
     private var audioSessionIsActive = false
     private var useHQForCurrentStation = true
@@ -75,11 +76,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     private let pausedSessionGracePeriod: Duration = .seconds(120)
     private var audioSessionDeactivationTask: Task<Void, Never>?
 
-    var hasMultipleStations = false {
-        didSet {
-            if oldValue != hasMultipleStations { updateRemoteCommandAvailability() }
-        }
-    }
+    var hasMultipleStations = false
 
     override init() {
         super.init()
@@ -131,8 +128,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
                 self?.updatePlaybackState()
             }
         }
-        configureRemoteCommands()
-        updateRemoteCommandAvailability()
     }
 
     private func handleMediaServicesReset() {
@@ -623,6 +618,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
 
         player.replaceCurrentItem(with: item)
         player.play()
+        activateNowPlayingSession()
         updateNowPlaying()
     }
 
@@ -752,6 +748,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         metadataOutput = nil
         currentStation = nil
         metadata = nil
+        nowPlayingSession = nil
         isPlaying = false
         isBuffering = false
         playbackError = false
