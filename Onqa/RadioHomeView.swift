@@ -494,8 +494,9 @@ struct RadioHomeView: View {
                     .frame(height: headerRowHeight, alignment: .center)
             }
             if store.isLocationPending {
-                // Keep the last usable label and its age visible while the
-                // city lookup runs. The spinner is only for the first location fix.
+                // Native spinner while the location or city name is still
+                // being retrieved; "Unknown location" appears only if the
+                // lookup finished without a result.
                 ProgressView()
                     .progressViewStyle(.circular)
                     .tint(accent)
