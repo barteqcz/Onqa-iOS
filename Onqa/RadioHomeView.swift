@@ -337,8 +337,7 @@ struct RadioHomeView: View {
                 .animation(.snappy(duration: 0.24), value: store.isNetworkAvailable)
                 .animation(.snappy(duration: 0.24), value: store.errorMessage)
                 .onScrollGeometryChange(for: Bool.self) { geometry in
-                    geometry.contentOffset.y + geometry.containerSize.height
-                        >= geometry.contentSize.height - 2
+                    geometry.visibleRect.maxY >= geometry.contentSize.height - 2
                 } action: { _, atBottom in
                     isScrolledToBottom = atBottom
                 }
