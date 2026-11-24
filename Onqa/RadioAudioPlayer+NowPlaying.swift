@@ -3,14 +3,14 @@ import MediaPlayer
 import UIKit
 import os
 
-/// Produces a bounded, square bitmap for system Now Playing artwork.
-///
-/// SVGs arrive here after WebKit has rasterized them. Normalizing every logo
-/// to the same 512 px canvas gives CarPlay and other system accessories a
-/// predictable image even when the original SVG has unusual dimensions.
-/// MediaPlayer asks its request handler for different sizes, so each response
-/// is rasterized to the requested dimensions instead of returning the original
-/// full-size image for every request.
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
 enum NowPlayingArtworkFactory {
     private static let maximumPixelSide = 512
     private static let boundsSize = CGSize(width: 512, height: 512)
@@ -91,8 +91,8 @@ enum NowPlayingArtworkFactory {
                 height: fittedSize.height
             )
 
-            // UIImage(cgImage:) applies UIKit's Core Graphics coordinate
-            // correction. Flipping this context as well would invert the logo.
+             
+             
             context.draw(source, in: fittedRect)
 
             guard let rendered = context.makeImage() else { return normalized }
@@ -114,8 +114,8 @@ extension RadioAudioPlayer {
 
     func configureRemoteCommands() {
         let center = MPRemoteCommandCenter.shared()
-        // Re-run after a media-services reset: drop old targets so commands
-        // are not handled twice.
+         
+         
         for command in [center.playCommand, center.pauseCommand, center.togglePlayPauseCommand,
                         center.nextTrackCommand, center.previousTrackCommand] {
             command.removeTarget(nil)
@@ -145,8 +145,8 @@ extension RadioAudioPlayer {
                 let data = try await StationImageCache.shared.data(for: url)
                 let svg = StationLogoFormat.svgData(from: data)
 
-                // UIImage cannot decode SVG. Render it through WebKit to a
-                // real bitmap before handing it to the system Now Playing UI.
+                 
+                 
                 let image: UIImage?
                 if let svg {
                     image = await StationImageCache.shared.renderedSVG(for: url, data: svg)
@@ -162,15 +162,15 @@ extension RadioAudioPlayer {
                 self.stationArtwork = NowPlayingArtworkFactory.makeArtwork(from: image)
                 self.updateNowPlaying()
             } catch {
-                // Artwork is optional; audio playback must not depend on image loading.
+                 
                 Log.playback.debug("Artwork unavailable: \(error.localizedDescription, privacy: .public)")
             }
         }
     }
 
-    /// Offers the system only the commands that can act right now, instead of
-    /// accepting every command and ignoring it: nothing without a station, and
-    /// next/previous only when there is another station to go to.
+     
+     
+     
     func updateRemoteCommandAvailability() {
         let center = MPRemoteCommandCenter.shared()
         let hasStation = currentStation != nil
@@ -196,9 +196,9 @@ extension RadioAudioPlayer {
             MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? 1.0 : 0.0,
             MPNowPlayingInfoPropertyMediaType: MPNowPlayingInfoMediaType.audio.rawValue
         ]
-        // With live ICY data, show the track as the large title and the
-        // station as its secondary line. Without metadata, show only the
-        // station name so the Lock Screen and Dynamic Island stay uncluttered.
+         
+         
+         
         if liveMetadata != nil {
             info[MPMediaItemPropertyArtist] = station.name
         }
