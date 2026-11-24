@@ -86,6 +86,25 @@ struct ReliabilityTests {
         ))
     }
 
+    @Test func locationAgeIsDisplayedOnlyAfterFailedGeocoding() {
+        #expect(!LocationNamePolicy.shouldDisplayAge(
+            hasName: true,
+            hasFailedGeocode: false
+        ))
+        #expect(LocationNamePolicy.shouldDisplayAge(
+            hasName: true,
+            hasFailedGeocode: true
+        ))
+        #expect(!LocationNamePolicy.shouldDisplayAge(
+            hasName: false,
+            hasFailedGeocode: true
+        ))
+        #expect(!LocationNamePolicy.shouldDisplayAge(
+            hasName: false,
+            hasFailedGeocode: false
+        ))
+    }
+
     // MARK: Fix quality
 
     @Test func onlyInvalidFixesAreRejected() {
