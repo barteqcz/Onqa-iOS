@@ -90,6 +90,19 @@ enum LocationNamePolicy {
     static func hasSuccessfulGeocode(hasName: Bool, retrievedAt: Date?) -> Bool {
         hasName && retrievedAt != nil
     }
+
+    /// Treat a cached city as current for at most the same minute in which
+    /// the header suppresses its age label. Older cached values are refreshed
+    /// when the app launches, returns to the foreground, or receives a fix.
+    static func hasFreshGeocode(
+        hasName: Bool,
+        retrievedAt: Date?,
+        now: Date = Date()
+    ) -> Bool {
+        guard hasName, let retrievedAt else { return false }
+        let age = now.timeIntervalSince(retrievedAt)
+        return age >= 0 && age < LocationAgePolicy.minimumAge
+    }
 }
 
 enum LocationAgePolicy {
@@ -221,6 +234,9 @@ extension RadioStore {
             // right away. The first live fix corrects the list if the person
             // has moved by at least the refresh threshold since then.
             await loadStations(at: coordinate)
+            // A cached city older than the counter's one-minute threshold gets
+            // revalidated on launch, even if Wi-Fi never reported a path change.
+            refreshLocationNameIfNeeded()
         } else {
             // Start catalog preparation independently of GPS so the catalog
             // download card can appear while the header resolves the location.
@@ -420,11 +436,11 @@ extension RadioStore {
             thresholdKm: Self.locationRefreshThresholdKm
         )
         guard movedEnough else {
-            let hasSuccessfulGeocode = LocationNamePolicy.hasSuccessfulGeocode(
+            let hasFreshGeocode = LocationNamePolicy.hasFreshGeocode(
                 hasName: hasLocationName,
                 retrievedAt: locationRetrievedAt
             )
-            let nameIsCurrent = hasSuccessfulGeocode
+            let nameIsCurrent = hasFreshGeocode
                 && !isLocationNameOutdated
                 && !isLocationNameStale
             // No station or coordinate change, but a failed city lookup must
@@ -477,13 +493,13 @@ extension RadioStore {
         let retrievedAt = settings.locationSource == .manual
             ? settings.manualCityGeocodedAt
             : locationRetrievedAt
-        let hasSuccessfulGeocode = LocationNamePolicy.hasSuccessfulGeocode(
+        let hasFreshGeocode = LocationNamePolicy.hasFreshGeocode(
             hasName: hasName,
             retrievedAt: retrievedAt
         )
         let needsLookup = isLocationNameStale
             || LocationNamePolicy.shouldRetryLookup(
-                hasName: hasSuccessfulGeocode && !isLocationNameOutdated,
+                hasName: hasFreshGeocode && !isLocationNameOutdated,
                 isResolving: isResolvingLocationName,
                 isRetryAllowed: isNameLookupRetryAllowed,
                 appIsActive: isAppActive
@@ -499,6 +515,7 @@ extension RadioStore {
     /// Retry the current city's lookup immediately after connectivity returns.
     /// The last successful name and timestamp remain visible while it retries.
     func retryLocationNameAfterReconnect() {
+        cancelLocationNameRetry()
         resetNameLookupBackoff()
         guard hasConfirmedOnboardingThisSession, locationCoordinate != nil else { return }
         locationLookupID &+= 1
@@ -535,6 +552,11 @@ extension RadioStore {
         configureLocationUpdates()
         if isActive {
             refreshLocationNameIfNeeded()
+            // If a retry was deferred while the app was backgrounded, resume
+            // its remaining backoff rather than waiting for another GPS fix.
+            if nextNameLookupDate != nil {
+                scheduleLocationNameRetry()
+            }
         }
     }
 
@@ -846,11 +868,43 @@ extension RadioStore {
         nextNameLookupDate = nil
     }
 
+    func cancelLocationNameRetry() {
+        locationNameRetryTask?.cancel()
+        locationNameRetryTask = nil
+    }
+
+    /// Keep retrying failed geocoding while the app is visible. NWPathMonitor
+    /// can remain satisfied when Wi-Fi is connected but internet access is
+    /// unavailable, and a stationary GPS device may not produce another fix.
+    private func scheduleLocationNameRetry() {
+        cancelLocationNameRetry()
+        guard isAppActive,
+              hasConfirmedOnboardingThisSession,
+              locationCoordinate != nil,
+              let retryAt = nextNameLookupDate else { return }
+
+        let delay = max(0, retryAt.timeIntervalSinceNow) + 0.25
+        locationNameRetryTask = Task { [weak self] in
+            do {
+                try await Task.sleep(for: .seconds(delay))
+            } catch {
+                return
+            }
+            guard let self, !Task.isCancelled else { return }
+            self.locationNameRetryTask = nil
+            guard self.isAppActive,
+                  self.hasConfirmedOnboardingThisSession,
+                  self.locationCoordinate != nil else { return }
+            self.refreshLocationNameIfNeeded()
+        }
+    }
+
     func refreshLocationName(
         for location: CLLocation,
         saveManualCity: Bool,
         keepsCurrentName: Bool = false
     ) {
+        cancelLocationNameRetry()
         locationLookupID &+= 1
         let requestID = locationLookupID
         if !keepsCurrentName {
@@ -917,6 +971,9 @@ extension RadioStore {
                 }
                 value.manualCountryCode = resolvedCountryCode
                 self.settings = value
+            }
+            if result.name == nil {
+                self.scheduleLocationNameRetry()
             }
         }
     }
