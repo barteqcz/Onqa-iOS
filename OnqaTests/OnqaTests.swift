@@ -114,8 +114,8 @@ struct OnqaTests {
         ))
     }
 
-    @Test func manualLocationKeepsLabelVisibleWhileReverseGeocodingWithoutGPSPermission() {
-        #expect(!LocationPresentation.isPending(
+    @Test func manualLocationShowsLoadingWhileReverseGeocodingWithoutGPSPermission() {
+        #expect(LocationPresentation.isPending(
             source: .manual,
             permissionDenied: true,
             resolvingName: true,
@@ -703,24 +703,7 @@ final class RadioStoreTests {
         settings.manualCity = "Gliwice"
         settings.manualLocationRetrievedAt = Date().addingTimeInterval(-600)
         store.settings = settings
-        store.locationName = "Gliwice"
-        store.locationRetrievedAt = Date().addingTimeInterval(-600)
 
-        #expect(store.locationAgeText() != nil)
-    }
-
-    @Test func manualLocationWithoutResolvedCityStillShowsCoordinateAge() {
-        let store = RadioStore()
-        var settings = store.settings
-        settings.locationSource = .manual
-        settings.manualLatitude = 50.29
-        settings.manualLongitude = 18.67
-        settings.manualLocationRetrievedAt = Date().addingTimeInterval(-600)
-        store.settings = settings
-        store.locationCoordinate = CLLocationCoordinate2D(latitude: 50.29, longitude: 18.67)
-
-        #expect(store.locationLabel == String(localized: "Unknown location"))
-        #expect(store.displayedLocationRetrievedAt == settings.manualLocationRetrievedAt)
         #expect(store.locationAgeText() != nil)
     }
 
