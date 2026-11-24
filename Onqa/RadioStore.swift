@@ -28,8 +28,8 @@ final class RadioStore {
                 isResolvingLocationName = false
                 if settings.locationSource == .gps {
                     if let coordinate = lastAutomaticCoordinate {
-                        // Restore the last automatic location immediately. The live
-                        // stream supplies fresh fixes without clearing an unchanged list.
+                         
+                         
                         locationCoordinate = coordinate
                         locationName = lastAutomaticLocationName
                         locationCountryCode = lastAutomaticLocationCountryCode
@@ -74,25 +74,25 @@ final class RadioStore {
     var locationCoordinate: CLLocationCoordinate2D?
     var locationName: String?
     var locationCountryCode: String?
-    /// When the automatic location name was last confirmed, shown as a
-    /// "minutes ago" counter next to it.
+     
+     
     var locationRetrievedAt: Date?
     @ObservationIgnored var gpsLocationNameRetryState = LocationNameRetryState()
     @ObservationIgnored var manualLocationNameRetryState = LocationNameRetryState()
-    /// True from the moment a reverse-geocode starts until it finishes, so the
-    /// UI can tell "still looking up the name" apart from "no name found".
+     
+     
     var isResolvingLocationName = false
     var locationAuthorizationStatus: CLAuthorizationStatus = .notDetermined
-    // Session-only confirmation prevents an Allow Once grant from skipping
-    // onboarding on the next launch, while permanent When In Use access does.
+     
+     
     var hasConfirmedOnboardingThisSession = false
     var isLoading = false
     var isDownloadingCatalog = false
-    /// What the home screen shows in place of the station list while the
-    /// catalog downloads (or cannot), or nil otherwise. Set only for downloads
-    /// the person has to wait for (the first-launch download and the update
-    /// check at launch), never for the manual "Update now" button in Settings,
-    /// which has its own spinner.
+     
+     
+     
+     
+     
     var catalogStatus: CatalogStatus?
     var isNetworkAvailable = true
     var locationPermissionDenied = false
