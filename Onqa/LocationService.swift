@@ -595,7 +595,7 @@ extension RadioStore {
                     backgroundActivitySession = CLBackgroundActivitySession()
                 }
             }
-            startLocationUpdates()
+            startLocationUpdates(allowsBackgroundLocationUpdates: player.hasActivePlayback)
         } else {
 
             cancelPendingLocationStop()
@@ -674,8 +674,11 @@ extension RadioStore {
         locationServiceSession = nil
     }
 
-    func startLocationUpdates() {
-        guard locationUpdateSource == nil else { return }
+    func startLocationUpdates(allowsBackgroundLocationUpdates: Bool) {
+        if let locationUpdateSource {
+            locationUpdateSource.setAllowsBackgroundLocationUpdates(allowsBackgroundLocationUpdates)
+            return
+        }
 
         let source = LocationUpdateSource()
         source.onFix = { [weak self] location in
@@ -688,7 +691,7 @@ extension RadioStore {
             self?.handleLocationUpdateFailure(error)
         }
         locationUpdateSource = source
-        source.start()
+        source.start(allowsBackgroundLocationUpdates: allowsBackgroundLocationUpdates)
     }
 
     func stopLocationUpdates() {
