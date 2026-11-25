@@ -74,7 +74,7 @@ final class LocationUpdateSource: NSObject, CLLocationManagerDelegate {
         manager.desiredAccuracy = LocationRequestConfiguration.desiredAccuracy
         manager.distanceFilter = LocationRequestConfiguration.minimumDistance
 
-        manager.pausesLocationUpdatesAutomatically = true
+        manager.pausesLocationUpdatesAutomatically = false
 
         manager.allowsBackgroundLocationUpdates = true
         manager.startUpdatingLocation()
