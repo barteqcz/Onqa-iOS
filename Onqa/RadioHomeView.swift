@@ -65,7 +65,6 @@ private struct TopScrollEdgeEffect: ViewModifier {
 /// Main listening screen: location context, station discovery, favorites, and the persistent mini-player.
 struct RadioHomeView: View {
     @Bindable var store: RadioStore
-    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.colorScheme) private var colorScheme
 
     @Environment(\.locale) private var locale
@@ -192,9 +191,6 @@ struct RadioHomeView: View {
             if !isShowing {
                 store.revertToAutoIfManualLocationMissing()
             }
-        }
-        .onChange(of: scenePhase) { _, phase in
-            store.setAppIsActive(phase == .active)
         }
     }
 
