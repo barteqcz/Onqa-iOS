@@ -543,7 +543,10 @@ extension RadioStore {
         }
         Log.location.error("Location updates failed: \(error.localizedDescription, privacy: .public)")
 
+        cancelPendingLocationStop()
         stopLocationUpdates()
+        endBackgroundActivitySession()
+        endLocationServiceSession()
         refreshLocationAuthorizationStatus(configureTracking: false)
         if settings.locationSource == .gps && !hasLocationAccess {
             locationName = nil
@@ -587,6 +590,19 @@ extension RadioStore {
         )
 
         if shouldTrackLocation || shouldKeepTrackingDuringGrace {
+            // A background playback command may resume audio after the location sessions
+            // were released. Do not create new Core Location sessions from that background
+            // transition; wait until the app becomes active and can establish them correctly.
+            let hasForegroundEstablishedBackgroundSessions =
+                locationServiceSession != nil && backgroundActivitySession != nil
+            guard isAppActive || hasForegroundEstablishedBackgroundSessions else {
+                cancelPendingLocationStop()
+                stopLocationUpdates()
+                endBackgroundActivitySession()
+                endLocationServiceSession()
+                return
+            }
+
             ensureLocationServiceSession()
             if player.hasActivePlayback {
                 cancelPendingLocationStop()
@@ -641,7 +657,8 @@ extension RadioStore {
     }
 
     func ensureLocationServiceSession() {
-        guard locationServiceSession == nil else { return }
+        // Core Location service sessions must be established while the app is foregrounded.
+        guard isAppActive, locationServiceSession == nil else { return }
         let session = CLServiceSession(authorization: .whenInUse)
         locationServiceSession = session
 
