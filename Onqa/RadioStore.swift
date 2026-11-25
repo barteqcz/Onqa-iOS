@@ -146,6 +146,8 @@ final class RadioStore {
     /// Creating a new CLLocationManager for every status check is wasteful.
     @ObservationIgnored let authorizationProbe = CLLocationManager()
     var isAppActive = false
+    @ObservationIgnored var wasPlaybackActive = false
+    @ObservationIgnored var requiresLocationRefreshAfterBackgroundPlaybackResume = false
 
     // Keep the automatic location separate from the currently selected manual
     // coordinate so switching back to Auto can restore its last known state.
@@ -204,12 +206,30 @@ final class RadioStore {
         player.onNext = { [weak self] in self?.playNext() }
         player.onPrevious = { [weak self] in self?.playPrevious() }
         player.onPlaybackActivityChange = { [weak self] in
-            self?.configureLocationUpdates()
+            self?.handlePlaybackActivityChange()
         }
     }
 }
 
 extension RadioStore {
+    /// Reactivates background location on the already-running manager when playback resumes
+    /// from the Lock Screen, then asks Core Location for a fresh fix.
+    func handlePlaybackActivityChange() {
+        let playbackIsActive = player.hasActivePlayback
+        let resumedInBackground = playbackIsActive && !wasPlaybackActive && !isAppActive
+        wasPlaybackActive = playbackIsActive
+
+        if resumedInBackground && settings.locationSource == .gps {
+            requiresLocationRefreshAfterBackgroundPlaybackResume = true
+        }
+
+        configureLocationUpdates()
+
+        if resumedInBackground {
+            locationUpdateSource?.requestCurrentLocation()
+        }
+    }
+
     var displayedStations: [RadioStation] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return stations }
