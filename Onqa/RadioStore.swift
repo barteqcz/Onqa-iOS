@@ -145,7 +145,7 @@ final class RadioStore {
     /// One manager, only used to read the current authorization status.
     /// Creating a new CLLocationManager for every status check is wasteful.
     @ObservationIgnored let authorizationProbe = CLLocationManager()
-    var isAppActive = true
+    var isAppActive = false
 
     // Keep the automatic location separate from the currently selected manual
     // coordinate so switching back to Auto can restore its last known state.
