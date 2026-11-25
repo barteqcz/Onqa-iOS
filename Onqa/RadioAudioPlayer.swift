@@ -84,6 +84,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     // Type-erased storage keeps the iOS 27-only framework type out of the Observation macro expansion.
     @ObservationIgnored
     var nowPlayingSessionStorage: AnyObject?
+    @ObservationIgnored var nowPlayingPromotionTask: Task<Void, Never>?
     #endif
     private var interruptionObserver: NSObjectProtocol?
     private var audioSessionIsActive = false
