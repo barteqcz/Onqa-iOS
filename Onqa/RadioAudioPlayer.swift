@@ -634,7 +634,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         updateNowPlayingForCurrentOS()
     }
 
-    // Fade out before releasing the current item so pauses and station changes do not click or pop.
+    // Fade out before releasing the current item so pausing does not click or pop.
     func pause() {
         intendsToPlay = false
         playbackRequestID &+= 1
