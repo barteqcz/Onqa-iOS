@@ -269,7 +269,7 @@ extension RadioAudioPlayer: MediaSessionRepresentable {
                     break
                 } catch {
                     Log.playback.error(
-                        "Unable to publish Now Playing session (attempt \\(attempt + 1)): \\(error.localizedDescription, privacy: .public)"
+                        "Unable to publish Now Playing session (attempt \(attempt + 1)): \(error.localizedDescription, privacy: .public)"
                     )
                     // A transient failure must not leave audible playback without a Lock Screen session.
                     let delay = min(30, 1 << min(attempt, 5))

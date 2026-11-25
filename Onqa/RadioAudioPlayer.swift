@@ -46,8 +46,10 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         }
     }
 
+    /// Reconnect attempts stop counting as active playback after a few failures so a dead stream
+    /// cannot hold background location (the blue arrow) forever without any audio.
     var hasActivePlayback: Bool {
-        isPlaying || isBuffering || isReconnecting
+        isPlaying || isBuffering || (isReconnecting && reconnectFailures < backgroundReconnectFailureLimit)
     }
 
     var onNext: (() -> Void)?
@@ -72,6 +74,12 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     private let reconnectMaxDelay: TimeInterval = 30
     private var reconnectFailures = 0
     private let stalledPlaybackRecoveryDelay: Duration = .seconds(10)
+    private let backgroundReconnectFailureLimit = 4
+    // Keep the (paused) audio session briefly so Lock Screen / Dynamic Island controls stay available.
+    private let pausedSessionLinger: Duration = .seconds(300)
+    private var sessionDeactivationTask: Task<Void, Never>?
+    // True from a play request until an explicit pause/stop; unaffected by system-initiated pauses.
+    private var intendsToPlay = false
 
     private var resumeAfterInterruption = false
     private var routeChangeObserver: NSObjectProtocol?
@@ -158,7 +166,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     private func handleMediaServicesReset() {
         Log.playback.error("Media services were reset; rebuilding the player")
         let station = currentStation
-        let wasActive = isPlaying || isBuffering || isReconnecting
+        let wasActive = intendsToPlay || isPlaying || isBuffering || isReconnecting
 
         playbackRequestID &+= 1
         resumeAfterInterruption = false
@@ -194,17 +202,46 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     private func handleInterruption(_ type: AVAudioSession.InterruptionType, shouldResume: Bool) {
         switch type {
         case .began:
-            let wasActive = isPlaying || isBuffering || isReconnecting
-            pause()
-
+            // Read intent, not UI state: iOS has already paused AVPlayer and the KVO update may have won the race.
+            let wasActive = intendsToPlay || isPlaying || isBuffering || isReconnecting
+            suspendForInterruption()
             resumeAfterInterruption = wasActive
         case .ended:
             let shouldRestart = resumeAfterInterruption && shouldResume
             resumeAfterInterruption = false
-            if shouldRestart { resume() }
+            if shouldRestart {
+                resume()
+            } else {
+                scheduleAudioSessionDeactivation()
+            }
         @unknown default:
             break
         }
+    }
+
+    // Release the stream but leave the audio session alone; deactivating it mid-interruption can
+    // cost us the shouldResume hint and the Now Playing registration.
+    private func suspendForInterruption() {
+        playbackRequestID &+= 1
+        intendsToPlay = false
+        holdsSwitchUI = false
+        switchTargetItem = nil
+        reconnectTask?.cancel()
+        reconnectTask = nil
+        reconnectFailures = 0
+        shouldFadeInWhenPlaybackStarts = false
+        volumeFadeTask?.cancel()
+        volumeFadeTask = nil
+        player.volume = 0
+        player.pause()
+        player.replaceCurrentItem(with: nil)
+        itemStatusObservation = nil
+        removeItemNotificationObservers()
+        metadataOutput = nil
+        isReconnecting = false
+        isPlaying = false
+        isBuffering = false
+        playbackError = false
     }
 
     private func pauseAfterRouteLoss() {
@@ -264,6 +301,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
 
     func play(_ station: RadioStation, useHQ: Bool) {
         resumeAfterInterruption = false
+        intendsToPlay = true
         beginPlayback(station, useHQ: useHQ, preservingReconnectState: false)
     }
 
@@ -309,7 +347,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
             isBuffering = false
             playbackError = true
             isReconnecting = true
-            reconnectFailures += 1
+            recordReconnectFailure()
             scheduleReconnect(for: station, useHQ: useHQ, requestID: requestID)
             return
         }
@@ -460,8 +498,15 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         isBuffering = false
         playbackError = true
         isReconnecting = true
-        reconnectFailures += 1
+        recordReconnectFailure()
         scheduleReconnect(for: station, useHQ: useHQ, requestID: requestID)
+    }
+
+    private func recordReconnectFailure() {
+        reconnectFailures += 1
+        if reconnectFailures == backgroundReconnectFailureLimit {
+            onPlaybackActivityChange?()
+        }
     }
 
     func retryNow() {
@@ -485,6 +530,8 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     }
 
     private func activateAudioSession() -> Bool {
+        sessionDeactivationTask?.cancel()
+        sessionDeactivationTask = nil
         let session = AVAudioSession.sharedInstance()
         do {
             try session.setCategory(.playback, mode: .default, options: [])
@@ -498,9 +545,20 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     }
 
     private func scheduleAudioSessionDeactivation() {
-        // Release the nonmixable playback session as soon as playback is paused.
+        // Keep the session for a while after a pause so the system still lists us as the Now Playing app.
         // A later Play command reactivates it immediately before starting AVPlayer.
-        deactivateAudioSession()
+        sessionDeactivationTask?.cancel()
+        sessionDeactivationTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await Task.sleep(for: self.pausedSessionLinger)
+            } catch {
+                return
+            }
+            guard !Task.isCancelled, !self.hasActivePlayback else { return }
+            self.sessionDeactivationTask = nil
+            self.deactivateAudioSession()
+        }
     }
 
     private func deactivateAudioSession() {
@@ -547,8 +605,10 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
             switchTargetItem = nil
             isPlaying = false
             isBuffering = false
-            isReconnecting = false
             playbackError = true
+            isReconnecting = true
+            recordReconnectFailure()
+            scheduleReconnect(for: station, useHQ: useHQ, requestID: requestID)
             return
         }
 
@@ -619,11 +679,14 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
 
         player.replaceCurrentItem(with: item)
         player.play()
+        // Startup watchdog: a stream that connects but never delivers audio never fails or stalls on its own.
+        scheduleStalledPlaybackRecovery(for: station, useHQ: useHQ, requestID: requestID, item: item)
         updateNowPlayingForCurrentOS()
     }
 
     // Fade out before releasing the current item so pauses and station changes do not click or pop.
     func pause() {
+        intendsToPlay = false
         playbackRequestID &+= 1
         let requestID = playbackRequestID
         resumeAfterInterruption = false
@@ -726,6 +789,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     }
 
     func stop() {
+        intendsToPlay = false
         playbackRequestID &+= 1
         resumeAfterInterruption = false
         holdsSwitchUI = false
