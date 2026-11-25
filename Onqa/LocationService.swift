@@ -749,10 +749,11 @@ extension RadioStore {
     func checkCoverageAndSwitch() {
 
         guard player.hasActivePlayback,
-              !player.isReconnecting,
-              let current = player.currentStation,
-              let currentURL = player.currentStreamURL else { return }
+              let current = player.currentStation else { return }
         let useHQ = settings.useHQStream
+        // During reconnects AVPlayer may temporarily have no current item/URL. The selected
+        // station's catalog URL still identifies it for the fresh-location coverage check.
+        guard let currentURL = player.currentStreamURL ?? current.streamURL(useHQ: useHQ) else { return }
 
         func inCoverage(_ station: RadioStation) -> Bool {
             guard let distance = station.distanceKm, let coverage = station.coverageKm else { return false }
