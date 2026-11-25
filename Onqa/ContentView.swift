@@ -21,6 +21,7 @@ extension OnqaAccent {
 // Selects onboarding or the main radio experience and applies the user's global appearance preferences.
 struct ContentView: View {
     let store: RadioStore
+    @Environment(\.scenePhase) private var scenePhase
 
     private var preferredScheme: ColorScheme? {
         switch store.settings.theme {
@@ -44,6 +45,9 @@ struct ContentView: View {
         .tint(store.settings.accent.swiftUIColor)
         .preferredColorScheme(preferredScheme)
         .task { await store.bootstrap() }
+        .onChange(of: scenePhase, initial: true) { _, phase in
+            store.setAppIsActive(phase == .active)
+        }
         .onChange(of: store.settings.onboardingCompleted) { _, completed in
             if completed { store.refreshStations() }
         }
