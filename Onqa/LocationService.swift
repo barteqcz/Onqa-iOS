@@ -411,6 +411,9 @@ extension RadioStore {
         if !hasLocationAccess {
             refreshLocationAuthorizationStatus(configureTracking: false)
         }
+        // A paused station keeps its manager available for a future Lock Screen resume,
+        // but background fixes are only actionable while audio is active.
+        guard isAppActive || player.hasActivePlayback else { return }
         handleLocationFix(location)
     }
 
@@ -446,7 +449,8 @@ extension RadioStore {
             to: location.coordinate,
             thresholdKm: Self.locationRefreshThresholdKm
         )
-        guard movedEnough else {
+        let requiresResumeRefresh = requiresLocationRefreshAfterBackgroundPlaybackResume
+        guard movedEnough || requiresResumeRefresh else {
             let hasFreshGeocode = LocationNamePolicy.hasFreshGeocode(
                 hasName: hasLocationName,
                 retrievedAt: locationRetrievedAt
@@ -484,9 +488,10 @@ extension RadioStore {
 
             setLocationNameStale(true, for: .gps)
         }
-        if movedEnough,
+        if (movedEnough || requiresResumeRefresh),
            hasConfirmedOnboardingThisSession,
            settings.locationSource == .gps {
+            requiresLocationRefreshAfterBackgroundPlaybackResume = false
             Task { await loadStations(at: location.coordinate) }
         }
     }
@@ -562,6 +567,9 @@ extension RadioStore {
         refreshLocationAuthorizationStatus(configureTracking: false)
         configureLocationUpdates()
         if isActive {
+            if requiresLocationRefreshAfterBackgroundPlaybackResume {
+                locationUpdateSource?.requestCurrentLocation()
+            }
             refreshLocationNameIfNeeded()
         }
     }
@@ -578,7 +586,9 @@ extension RadioStore {
             return
         }
 
-        if !player.hasActivePlayback, backgroundActivitySession != nil {
+        if player.currentStation == nil {
+            cancelPendingLocationStop()
+        } else if !player.hasActivePlayback, backgroundActivitySession != nil {
             scheduleLocationStop()
         }
 
@@ -590,16 +600,18 @@ extension RadioStore {
         )
 
         if shouldTrackLocation || shouldKeepTrackingDuringGrace {
-            // A background playback command may resume audio after the location sessions
-            // were released. Do not create new Core Location sessions from that background
-            // transition; wait until the app becomes active and can establish them correctly.
-            let hasForegroundEstablishedBackgroundSessions =
-                locationServiceSession != nil && backgroundActivitySession != nil
-            guard isAppActive || hasForegroundEstablishedBackgroundSessions else {
+            // CLServiceSession and CLLocationManager are established in the foreground.
+            // Keep them alive while a station remains selected, but disable background
+            // delivery when paused so Lock Screen playback can safely re-enable it.
+            let canResumeExistingManagerInBackground =
+                locationServiceSession != nil && locationUpdateSource != nil
+            guard isAppActive || canResumeExistingManagerInBackground else {
                 cancelPendingLocationStop()
-                stopLocationUpdates()
                 endBackgroundActivitySession()
-                endLocationServiceSession()
+                if player.currentStation == nil {
+                    stopLocationUpdates()
+                    endLocationServiceSession()
+                }
                 return
             }
 
@@ -611,13 +623,22 @@ extension RadioStore {
                     backgroundActivitySession = CLBackgroundActivitySession()
                 }
             }
-            startLocationUpdates(allowsBackgroundLocationUpdates: player.hasActivePlayback)
+            startLocationUpdates(
+                allowsBackgroundLocationUpdates: player.hasActivePlayback || shouldKeepTrackingDuringGrace
+            )
         } else {
 
             cancelPendingLocationStop()
-            stopLocationUpdates()
             endBackgroundActivitySession()
-            endLocationServiceSession()
+            if player.currentStation != nil {
+                // Preserve the foreground-created manager/session for a later Lock Screen
+                // resume. With background delivery disabled, this does not request a
+                // continuous background-location keep-alive while playback is paused.
+                locationUpdateSource?.setAllowsBackgroundLocationUpdates(false)
+            } else {
+                stopLocationUpdates()
+                endLocationServiceSession()
+            }
         }
     }
 
@@ -640,13 +661,15 @@ extension RadioStore {
             self.locationStopTask = nil
 
             if !self.shouldTrackLocation {
-                self.stopLocationUpdates()
+                if self.player.currentStation != nil {
+                    self.locationUpdateSource?.setAllowsBackgroundLocationUpdates(false)
+                } else {
+                    self.stopLocationUpdates()
+                    self.endLocationServiceSession()
+                }
             }
             if !self.player.hasActivePlayback {
                 self.endBackgroundActivitySession()
-            }
-            if !self.shouldTrackLocation {
-                self.endLocationServiceSession()
             }
         }
     }
@@ -725,7 +748,7 @@ extension RadioStore {
     // Keep the current station while it has a transmitter in range; otherwise choose the best in-range fallback.
     func checkCoverageAndSwitch() {
 
-        guard player.isPlaying,
+        guard player.hasActivePlayback,
               !player.isReconnecting,
               let current = player.currentStation,
               let currentURL = player.currentStreamURL else { return }
