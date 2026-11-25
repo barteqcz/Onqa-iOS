@@ -27,6 +27,14 @@ struct ReliabilityTests {
         #expect(RetryBackoff.delay(afterFailures: -3, base: 3, cap: 30) == 0)
     }
 
+    @Test func stationSwitchFadeLinearlyReducesPreviousPlayerVolume() {
+        #expect(StationSwitchFadePolicy.volume(startingVolume: 1, step: 0, steps: 24) == 1)
+        #expect(StationSwitchFadePolicy.volume(startingVolume: 1, step: 12, steps: 24) == 0.5)
+        #expect(StationSwitchFadePolicy.volume(startingVolume: 1, step: 24, steps: 24) == 0)
+        #expect(StationSwitchFadePolicy.volume(startingVolume: 0.4, step: 24, steps: 24) == 0)
+        #expect(StationSwitchFadePolicy.volume(startingVolume: 0.4, step: 30, steps: 24) == 0)
+    }
+
     @Test func stationCardTapDoesNotCancelBufferingPlayback() {
         #expect(StationCardPlaybackPolicy.action(
             isCurrentStation: true,
