@@ -657,7 +657,8 @@ extension RadioStore {
     }
 
     func ensureLocationServiceSession() {
-        // Core Location service sessions must be established while the app is foregrounded.
+        // A lock-screen playback resume must not create a new service session in the background.
+        // Existing sessions established before backgrounding remain valid and are reused.
         guard isAppActive, locationServiceSession == nil else { return }
         let session = CLServiceSession(authorization: .whenInUse)
         locationServiceSession = session
