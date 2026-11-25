@@ -4,6 +4,27 @@ import MapKit
 import Network
 import Observation
 
+enum StationCardPlaybackAction: Equatable {
+    case start
+    case pause
+    case ignore
+}
+
+enum StationCardPlaybackPolicy {
+    static func action(
+        isCurrentStation: Bool,
+        isPlaying: Bool,
+        isBuffering: Bool,
+        isReconnecting: Bool
+    ) -> StationCardPlaybackAction {
+        guard isCurrentStation else { return .start }
+        // A repeated tap while the stream is waiting for data is not a pause request.
+        if isBuffering { return .ignore }
+        if isPlaying || isReconnecting { return .pause }
+        return .start
+    }
+}
+
 /// Observable application coordinator for settings, stations, favorites, location, catalog loading, and playback.
 @MainActor
 @Observable
@@ -212,10 +233,18 @@ extension RadioStore {
     }
 
     func play(_ station: RadioStation) {
-        if player.currentStation?.id == station.id && (player.isPlaying || player.isBuffering || player.isReconnecting) {
-            player.pause()
-        } else {
+        switch StationCardPlaybackPolicy.action(
+            isCurrentStation: player.currentStation?.id == station.id,
+            isPlaying: player.isPlaying,
+            isBuffering: player.isBuffering,
+            isReconnecting: player.isReconnecting
+        ) {
+        case .start:
             player.play(station, useHQ: settings.useHQStream)
+        case .pause:
+            player.pause()
+        case .ignore:
+            break
         }
     }
 
