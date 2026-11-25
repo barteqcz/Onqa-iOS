@@ -601,6 +601,7 @@ extension RadioStore {
             cancelPendingLocationStop()
             stopLocationUpdates()
             endBackgroundActivitySession()
+            endLocationServiceSession()
         }
     }
 
@@ -627,6 +628,9 @@ extension RadioStore {
             }
             if !self.player.hasActivePlayback {
                 self.endBackgroundActivitySession()
+            }
+            if !self.shouldTrackLocation {
+                self.endLocationServiceSession()
             }
         }
     }
