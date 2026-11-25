@@ -68,16 +68,19 @@ final class LocationUpdateSource: NSObject, CLLocationManagerDelegate {
 
     private let manager = CLLocationManager()
 
-    func start() {
+    func start(allowsBackgroundLocationUpdates: Bool) {
         lastDeliveredLocationTimestamp = nil
         manager.delegate = self
         manager.desiredAccuracy = LocationRequestConfiguration.desiredAccuracy
         manager.distanceFilter = LocationRequestConfiguration.minimumDistance
 
         manager.pausesLocationUpdatesAutomatically = false
-
-        manager.allowsBackgroundLocationUpdates = true
+        manager.allowsBackgroundLocationUpdates = allowsBackgroundLocationUpdates
         manager.startUpdatingLocation()
+    }
+
+    func setAllowsBackgroundLocationUpdates(_ allowed: Bool) {
+        manager.allowsBackgroundLocationUpdates = allowed
     }
 
     func stop() {
