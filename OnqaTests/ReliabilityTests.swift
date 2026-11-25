@@ -27,6 +27,39 @@ struct ReliabilityTests {
         #expect(RetryBackoff.delay(afterFailures: -3, base: 3, cap: 30) == 0)
     }
 
+    @Test func stationCardTapDoesNotCancelBufferingPlayback() {
+        #expect(StationCardPlaybackPolicy.action(
+            isCurrentStation: true,
+            isPlaying: false,
+            isBuffering: true,
+            isReconnecting: false
+        ) == .ignore)
+        #expect(StationCardPlaybackPolicy.action(
+            isCurrentStation: true,
+            isPlaying: false,
+            isBuffering: true,
+            isReconnecting: true
+        ) == .ignore)
+        #expect(StationCardPlaybackPolicy.action(
+            isCurrentStation: true,
+            isPlaying: true,
+            isBuffering: false,
+            isReconnecting: false
+        ) == .pause)
+        #expect(StationCardPlaybackPolicy.action(
+            isCurrentStation: false,
+            isPlaying: false,
+            isBuffering: true,
+            isReconnecting: false
+        ) == .start)
+        #expect(StationCardPlaybackPolicy.action(
+            isCurrentStation: true,
+            isPlaying: false,
+            isBuffering: false,
+            isReconnecting: false
+        ) == .start)
+    }
+
     @Test func nameLookupIsRetriedOnlyWhenVisibleAndAllowed() {
         #expect(LocationNamePolicy.shouldRetryLookup(
             hasName: false, isResolving: false, isRetryAllowed: true, appIsActive: true
