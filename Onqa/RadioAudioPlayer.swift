@@ -90,7 +90,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     private var sessionDeactivationTask: Task<Void, Never>?
     // True from a play request until an explicit pause/stop; unaffected by system-initiated pauses.
     private var intendsToPlay = false
-    @ObservationIgnored var isApplicationActive = true
+    @ObservationIgnored var isApplicationActive = false
 
     private var resumeAfterInterruption = false
     private var routeChangeObserver: NSObjectProtocol?
