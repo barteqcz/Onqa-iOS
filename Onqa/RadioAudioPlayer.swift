@@ -22,7 +22,12 @@ enum StationSwitchFadePolicy {
 @Observable
 final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     private(set) var currentStation: RadioStation? {
-        didSet { updateNowPlaying() }
+        didSet {
+            if oldValue?.id != currentStation?.id {
+                onPlaybackActivityChange?()
+            }
+            updateNowPlaying()
+        }
     }
     private(set) var isPlaying = false {
         didSet {
