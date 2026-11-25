@@ -113,14 +113,14 @@ extension RadioAudioPlayer {
         let trimmedMetadata = metadata?.trimmingCharacters(in: .whitespacesAndNewlines)
         let liveMetadata = trimmedMetadata?.isEmpty == false ? trimmedMetadata : nil
         var info: [String: Any] = [
-            MPMediaItemPropertyTitle: liveMetadata ?? station.name,
+            MPMediaItemPropertyTitle: station.name,
             MPNowPlayingInfoPropertyIsLiveStream: true,
             MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? 1.0 : 0.0,
             MPNowPlayingInfoPropertyMediaType: MPNowPlayingInfoMediaType.audio.rawValue
         ]
 
-        if liveMetadata != nil {
-            info[MPMediaItemPropertyArtist] = station.name
+        if let liveMetadata {
+            info[MPMediaItemPropertyArtist] = liveMetadata
         }
         if let stationArtwork {
             info[MPMediaItemPropertyArtwork] = stationArtwork
@@ -143,6 +143,8 @@ extension RadioAudioPlayer {
     func clearNowPlayingForCurrentOS() {
         #if canImport(NowPlaying)
         if #available(iOS 27.0, *) {
+            nowPlayingPromotionTask?.cancel()
+            nowPlayingPromotionTask = nil
             nowPlayingSessionStorage = nil
             return
         }
@@ -236,24 +238,52 @@ extension RadioAudioPlayer: MediaSessionRepresentable {
         ]
     }
 
-    // Keep a single app-local session and promote it when playback starts.
+    // Keep one local session alive. Retry promotion after transient system failures, and
+    // promote again on each fresh playback start in case another app became primary.
     func activateNowPlayingSession() {
-        guard currentStation != nil, nowPlayingSessionStorage == nil else { return }
+        guard currentStation != nil else { return }
 
-        let session = MediaSession(self)
-        nowPlayingSessionStorage = session
+        let session: MediaSession<RadioAudioPlayer>
+        if let existing = nowPlayingSessionStorage as? MediaSession<RadioAudioPlayer> {
+            session = existing
+        } else {
+            session = MediaSession(self)
+            nowPlayingSessionStorage = session
+        }
 
-        Task { [weak self] in
-            guard let self, self.nowPlayingSessionStorage === session else { return }
-            do {
-                try await session.requestToBecomeApplicationPrimary()
-                guard self.nowPlayingSessionStorage === session else { return }
-            } catch {
-                Log.playback.error("Unable to publish Now Playing session: \(error.localizedDescription, privacy: .public)")
-                if self.nowPlayingSessionStorage === session {
-                    self.nowPlayingSessionStorage = nil
+        guard nowPlayingPromotionTask == nil else { return }
+
+        nowPlayingPromotionTask = Task { [weak self] in
+            var attempt = 0
+
+            while !Task.isCancelled {
+                guard
+                    let self,
+                    self.currentStation != nil,
+                    self.nowPlayingSessionStorage === session
+                else { break }
+
+                do {
+                    try await session.requestToBecomeApplicationPrimary()
+                    Log.playback.debug("Now Playing session promoted to application primary")
+                    break
+                } catch {
+                    Log.playback.error(
+                        "Unable to publish Now Playing session (attempt \\(attempt + 1)): \\(error.localizedDescription, privacy: .public)"
+                    )
+                    // A transient failure must not leave audible playback without a Lock Screen session.
+                    let delay = min(30, 1 << min(attempt, 5))
+                    attempt += 1
+                    do {
+                        try await Task.sleep(for: .seconds(delay))
+                    } catch {
+                        break
+                    }
                 }
             }
+
+            guard let self, self.nowPlayingSessionStorage === session else { return }
+            self.nowPlayingPromotionTask = nil
         }
     }
 }
