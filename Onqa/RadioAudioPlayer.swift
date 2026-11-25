@@ -64,10 +64,9 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     private var playbackRequestID: UInt64 = 0
     private var shouldFadeInWhenPlaybackStarts = false
 
-    private var holdsSwitchUI = false
-    private var switchTargetItem: AVPlayerItem?
-
     private let volumeFadeSteps = 24
+    // Start above silence so background audio is already audible before the optional fade-in runs.
+    private let startupPlaybackVolume: Float = 0.12
     private let volumeFadeStep: Duration = .milliseconds(25)
 
     private let reconnectBaseDelay: TimeInterval = 3
@@ -180,8 +179,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         timeControlObservation = nil
         removeItemNotificationObservers()
         metadataOutput = nil
-        holdsSwitchUI = false
-        switchTargetItem = nil
         shouldFadeInWhenPlaybackStarts = false
         reconnectFailures = 0
         isReconnecting = false
@@ -224,8 +221,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     private func suspendForInterruption() {
         playbackRequestID &+= 1
         intendsToPlay = false
-        holdsSwitchUI = false
-        switchTargetItem = nil
         reconnectTask?.cancel()
         reconnectTask = nil
         reconnectFailures = 0
@@ -249,23 +244,8 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         pause()
     }
 
-    // AVPlayer status is the source of truth; during a station switch, hold the UI on buffering until the new item plays.
+    // AVPlayer status is the source of truth for the current item's playback state.
     private func updatePlaybackState() {
-        if holdsSwitchUI {
-
-            if player.timeControlStatus == .playing,
-               let target = switchTargetItem,
-               player.currentItem === target,
-               target.status == .readyToPlay {
-                holdsSwitchUI = false
-                switchTargetItem = nil
-            } else {
-                isPlaying = false
-                isBuffering = true
-                return
-            }
-        }
-
         isPlaying = player.timeControlStatus == .playing
         isBuffering = player.timeControlStatus == .waitingToPlayAtSpecifiedRate
 
@@ -323,8 +303,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         stalledPlaybackTask = nil
         playbackRequestID &+= 1
         let requestID = playbackRequestID
-        holdsSwitchUI = false
-        switchTargetItem = nil
         useHQForCurrentStation = useHQ
         volumeFadeTask?.cancel()
         volumeFadeTask = nil
@@ -352,32 +330,9 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
             return
         }
 
-        let hasAudibleStream = player.currentItem != nil && player.volume > 0.001
-
-        guard hasAudibleStream else {
-            startPlayback(station, url: url, useHQ: useHQ, requestID: requestID)
-            return
-        }
-
-        holdsSwitchUI = true
-        currentStation = station
-            stationArtworkData = nil
-        metadata = nil
-        playbackError = false
-        isBuffering = true
-        isPlaying = false
-
-        volumeFadeTask = Task { [weak self] in
-            guard let self else { return }
-            let completed = await self.rampVolume(
-                to: 0,
-                steps: self.volumeFadeSteps,
-                requestID: requestID
-            )
-            guard completed, self.playbackRequestID == requestID else { return }
-            self.volumeFadeTask = nil
-            self.startPlayback(station, url: url, useHQ: useHQ, requestID: requestID)
-        }
+        // Replace the old item immediately instead of waiting for an async fade-out.
+        // A pending handoff must not depend on a task continuing after the app backgrounds.
+        startPlayback(station, url: url, useHQ: useHQ, requestID: requestID)
     }
 
     // Retry the same station with bounded backoff, but only while this request is still the active one.
@@ -482,8 +437,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
 
         Log.playback.error("Playback failed for \(station.name, privacy: .public); scheduling reconnect")
         shouldFadeInWhenPlaybackStarts = false
-        holdsSwitchUI = false
-        switchTargetItem = nil
         volumeFadeTask?.cancel()
         volumeFadeTask = nil
 
@@ -601,9 +554,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
 
         guard activateAudioSession() else {
             deactivateAudioSession()
-            holdsSwitchUI = false
-            switchTargetItem = nil
-            isPlaying = false
+                    isPlaying = false
             isBuffering = false
             playbackError = true
             isReconnecting = true
@@ -613,7 +564,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         }
 
         let item = AVPlayerItem(url: url)
-        if holdsSwitchUI { switchTargetItem = item }
         let output = AVPlayerItemMetadataOutput(identifiers: nil)
         output.setDelegate(self, queue: .main)
         item.add(output)
@@ -674,7 +624,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
 
         volumeFadeTask?.cancel()
         volumeFadeTask = nil
-        player.volume = 0
+        player.volume = startupPlaybackVolume
         shouldFadeInWhenPlaybackStarts = true
 
         player.replaceCurrentItem(with: item)
@@ -690,8 +640,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         playbackRequestID &+= 1
         let requestID = playbackRequestID
         resumeAfterInterruption = false
-        holdsSwitchUI = false
-        switchTargetItem = nil
         reconnectTask?.cancel()
         reconnectTask = nil
         isReconnecting = false
@@ -792,8 +740,6 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         intendsToPlay = false
         playbackRequestID &+= 1
         resumeAfterInterruption = false
-        holdsSwitchUI = false
-        switchTargetItem = nil
         reconnectTask?.cancel()
         reconnectTask = nil
         isReconnecting = false
