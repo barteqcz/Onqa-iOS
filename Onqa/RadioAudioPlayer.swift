@@ -7,6 +7,15 @@ import NowPlaying
 import Observation
 import os
 
+enum StationSwitchFadePolicy {
+    static func volume(startingVolume: Float, step: Int, steps: Int) -> Float {
+        let totalSteps = max(1, steps)
+        let clampedStep = min(max(step, 0), totalSteps)
+        let progress = Float(clampedStep) / Float(totalSteps)
+        return startingVolume * (1 - progress)
+    }
+}
+
 /// Main-actor owner of AVPlayer, audio-session lifecycle, stream metadata, and automatic recovery.
 /// `playbackRequestID` invalidates callbacks and tasks that belong to an older station request.
 @MainActor
@@ -57,6 +66,8 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     var onPlaybackActivityChange: (() -> Void)?
 
     @ObservationIgnored private var player = AVPlayer()
+    private var outgoingPlayer: AVPlayer?
+    private var outgoingFadeTask: Task<Void, Never>?
     private var volumeFadeTask: Task<Void, Never>?
     private var reconnectTask: Task<Void, Never>?
     private var stalledPlaybackTask: Task<Void, Never>?
@@ -149,12 +160,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
 
     private func configurePlayer() {
         player.automaticallyWaitsToMinimizeStalling = true
-
-        timeControlObservation = Self.observeTimeControlStatus(of: player) { [weak self] in
-            Task { @MainActor in
-                self?.updatePlaybackState()
-            }
-        }
+        observePlaybackState(of: player)
 
         if #unavailable(iOS 27.0) {
             configureRemoteCommands()
@@ -162,8 +168,74 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         }
     }
 
+    private func observePlaybackState(of observedPlayer: AVPlayer) {
+        timeControlObservation = Self.observeTimeControlStatus(of: observedPlayer) { [weak self, weak observedPlayer] in
+            Task { @MainActor in
+                guard let self, let observedPlayer, self.player === observedPlayer else { return }
+                self.updatePlaybackState()
+            }
+        }
+    }
+
+    private func stopOutgoingPlayer() {
+        outgoingFadeTask?.cancel()
+        outgoingFadeTask = nil
+        outgoingPlayer?.volume = 0
+        outgoingPlayer?.pause()
+        outgoingPlayer?.replaceCurrentItem(with: nil)
+        outgoingPlayer = nil
+    }
+
+    // Keep the old stream on its own AVPlayer while the replacement starts immediately.
+    // This preserves the station-switch fade without making startup wait for the fade to finish.
+    private func prepareForStationSwitch() {
+        stopOutgoingPlayer()
+
+        let previousPlayer = player
+        guard previousPlayer.currentItem != nil,
+              previousPlayer.timeControlStatus == .playing,
+              previousPlayer.volume > 0.001 else { return }
+
+        let incomingPlayer = AVPlayer()
+        incomingPlayer.automaticallyWaitsToMinimizeStalling = true
+        timeControlObservation = nil
+        player = incomingPlayer
+        observePlaybackState(of: incomingPlayer)
+
+        outgoingPlayer = previousPlayer
+        let startingVolume = previousPlayer.volume
+        let steps = volumeFadeSteps
+        let stepDuration = volumeFadeStep
+
+        outgoingFadeTask = Task { [weak self, previousPlayer] in
+            guard let self else { return }
+            for step in 1...steps {
+                do {
+                    try await Task.sleep(for: stepDuration)
+                } catch {
+                    return
+                }
+                guard !Task.isCancelled else { return }
+                previousPlayer.volume = StationSwitchFadePolicy.volume(
+                    startingVolume: startingVolume,
+                    step: step,
+                    steps: steps
+                )
+            }
+
+            previousPlayer.volume = 0
+            previousPlayer.pause()
+            previousPlayer.replaceCurrentItem(with: nil)
+            if self.outgoingPlayer === previousPlayer {
+                self.outgoingPlayer = nil
+                self.outgoingFadeTask = nil
+            }
+        }
+    }
+
     private func handleMediaServicesReset() {
         Log.playback.error("Media services were reset; rebuilding the player")
+        stopOutgoingPlayer()
         let station = currentStation
         let wasActive = intendsToPlay || isPlaying || isBuffering || isReconnecting
 
@@ -221,6 +293,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     private func suspendForInterruption() {
         playbackRequestID &+= 1
         intendsToPlay = false
+        stopOutgoingPlayer()
         reconnectTask?.cancel()
         reconnectTask = nil
         reconnectFailures = 0
@@ -309,7 +382,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
         shouldFadeInWhenPlaybackStarts = false
 
         guard let url = station.streamURL(useHQ: useHQ) else {
-
+            stopOutgoingPlayer()
             player.volume = 0
             player.pause()
             player.replaceCurrentItem(with: nil)
@@ -330,8 +403,9 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
             return
         }
 
-        // Replace the old item immediately instead of waiting for an async fade-out.
-        // A pending handoff must not depend on a task continuing after the app backgrounds.
+        // Start the replacement immediately; the previous player fades independently.
+        // A pending handoff never needs to wait for a fade task before starting audio.
+        prepareForStationSwitch()
         startPlayback(station, url: url, useHQ: useHQ, requestID: requestID)
     }
 
@@ -739,6 +813,7 @@ final class RadioAudioPlayer: NSObject, AVPlayerItemMetadataOutputPushDelegate {
     func stop() {
         intendsToPlay = false
         playbackRequestID &+= 1
+        stopOutgoingPlayer()
         resumeAfterInterruption = false
         reconnectTask?.cancel()
         reconnectTask = nil
