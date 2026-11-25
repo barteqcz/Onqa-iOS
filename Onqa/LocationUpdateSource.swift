@@ -61,6 +61,7 @@ private struct LocationSample: Sendable {
 @MainActor
 final class LocationUpdateSource: NSObject, CLLocationManagerDelegate {
     private var lastDeliveredLocationTimestamp: Date?
+    private var shouldDeliverNextLocationImmediately = false
 
     var onFix: (@MainActor (CLLocation) -> Void)?
     var onAuthorizationChange: (@MainActor (CLAuthorizationStatus) -> Void)?
@@ -83,6 +84,13 @@ final class LocationUpdateSource: NSObject, CLLocationManagerDelegate {
         manager.allowsBackgroundLocationUpdates = allowed
     }
 
+    /// Requests a fresh fix even when the normal continuous-update throttle has not elapsed.
+    func requestCurrentLocation() {
+        guard manager.delegate != nil else { return }
+        shouldDeliverNextLocationImmediately = true
+        manager.requestLocation()
+    }
+
     func stop() {
         manager.stopUpdatingLocation()
         manager.delegate = nil
@@ -100,11 +108,13 @@ final class LocationUpdateSource: NSObject, CLLocationManagerDelegate {
         guard let latest = locations.last else { return }
         let sample = LocationSample(latest)
         Task { @MainActor [weak self] in
-            guard let self,
-                  LocationUpdateTimingPolicy.shouldDeliver(
-                    timestamp: sample.timestamp,
-                    after: self.lastDeliveredLocationTimestamp
-                  ) else { return }
+            guard let self else { return }
+            let shouldDeliverImmediately = self.shouldDeliverNextLocationImmediately
+            self.shouldDeliverNextLocationImmediately = false
+            guard shouldDeliverImmediately || LocationUpdateTimingPolicy.shouldDeliver(
+                timestamp: sample.timestamp,
+                after: self.lastDeliveredLocationTimestamp
+            ) else { return }
             self.lastDeliveredLocationTimestamp = sample.timestamp
             self.onFix?(sample.location)
         }
