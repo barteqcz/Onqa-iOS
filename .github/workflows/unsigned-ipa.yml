@@ -11,6 +11,15 @@ on:
       - "Onqa/**"
       - "project.yml"
       - ".github/workflows/unsigned-ipa.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "Onqa/RadioAudioPlayer.swift"
+      - "Onqa/RadioAudioPlayer+NowPlaying.swift"
+      - "Onqa/**"
+      - "project.yml"
+      - ".github/workflows/unsigned-ipa.yml"
   workflow_dispatch:
 
 permissions:

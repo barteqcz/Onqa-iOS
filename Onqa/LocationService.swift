@@ -60,9 +60,38 @@ enum LocationRefreshPolicy {
     }
 }
 enum LocationFixQuality {
+    static let maximumLocationAge: TimeInterval = 30
+    static let allowedFutureTimestampSkew: TimeInterval = 5
+    static let maximumAccuracyMeters: CLLocationAccuracy =
+        LocationRequestConfiguration.minimumDistance / 2
 
-    static func isUsable(horizontalAccuracy: CLLocationAccuracy) -> Bool {
-        horizontalAccuracy >= 0
+    // Keep uncertainty within 10% of the smallest currently relevant transmitter radius,
+    // while never exceeding half of the 1 km movement threshold.
+    static func maximumHorizontalAccuracy(nearbyCoverageKm: Double?) -> CLLocationAccuracy {
+        guard let nearbyCoverageKm,
+              nearbyCoverageKm.isFinite,
+              nearbyCoverageKm > 0 else {
+            return maximumAccuracyMeters
+        }
+        let coverageBasedLimit = max(100, nearbyCoverageKm * 100)
+        return min(maximumAccuracyMeters, coverageBasedLimit)
+    }
+
+    static func isUsable(
+        _ location: CLLocation,
+        nearbyCoverageKm: Double?,
+        now: Date = .now
+    ) -> Bool {
+        let accuracy = location.horizontalAccuracy
+        let age = now.timeIntervalSince(location.timestamp)
+
+        return CLLocationCoordinate2DIsValid(location.coordinate)
+            && accuracy.isFinite
+            && accuracy >= 0
+            && accuracy <= maximumHorizontalAccuracy(nearbyCoverageKm: nearbyCoverageKm)
+            && age.isFinite
+            && age >= -allowedFutureTimestampSkew
+            && age <= maximumLocationAge
     }
 }
 
@@ -402,7 +431,14 @@ extension RadioStore {
     // Ignore unusable or insignificant fixes; station refreshes and city-name lookups have separate lifecycles.
     func handleLocationFix(_ location: CLLocation) {
         guard settings.locationSource == .gps else { return }
-        guard LocationFixQuality.isUsable(horizontalAccuracy: location.horizontalAccuracy) else { return }
+
+        let smallestNearbyCoverage = stations.compactMap(\.coverageKm)
+            .filter { $0.isFinite && $0 > 0 }
+            .min()
+        guard LocationFixQuality.isUsable(
+            location,
+            nearbyCoverageKm: smallestNearbyCoverage
+        ) else { return }
 
         let hasLocationName = hasResolvedLocationName
         let movedEnough = StationProcessor.shouldProcessLocationUpdate(
@@ -518,6 +554,7 @@ extension RadioStore {
 
     func setAppIsActive(_ isActive: Bool) {
         isAppActive = isActive
+        player.setApplicationIsActive(isActive)
 
         refreshLocationAuthorizationStatus(configureTracking: false)
         configureLocationUpdates()
@@ -558,12 +595,13 @@ extension RadioStore {
                     backgroundActivitySession = CLBackgroundActivitySession()
                 }
             }
-            startLocationUpdates()
+            startLocationUpdates(allowsBackgroundLocationUpdates: player.hasActivePlayback)
         } else {
 
             cancelPendingLocationStop()
             stopLocationUpdates()
             endBackgroundActivitySession()
+            endLocationServiceSession()
         }
     }
 
@@ -590,6 +628,9 @@ extension RadioStore {
             }
             if !self.player.hasActivePlayback {
                 self.endBackgroundActivitySession()
+            }
+            if !self.shouldTrackLocation {
+                self.endLocationServiceSession()
             }
         }
     }
@@ -633,8 +674,11 @@ extension RadioStore {
         locationServiceSession = nil
     }
 
-    func startLocationUpdates() {
-        guard locationUpdateSource == nil else { return }
+    func startLocationUpdates(allowsBackgroundLocationUpdates: Bool) {
+        if let locationUpdateSource {
+            locationUpdateSource.setAllowsBackgroundLocationUpdates(allowsBackgroundLocationUpdates)
+            return
+        }
 
         let source = LocationUpdateSource()
         source.onFix = { [weak self] location in
@@ -647,7 +691,7 @@ extension RadioStore {
             self?.handleLocationUpdateFailure(error)
         }
         locationUpdateSource = source
-        source.start()
+        source.start(allowsBackgroundLocationUpdates: allowsBackgroundLocationUpdates)
     }
 
     func stopLocationUpdates() {

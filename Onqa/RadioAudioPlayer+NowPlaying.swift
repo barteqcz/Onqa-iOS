@@ -128,9 +128,29 @@ extension RadioAudioPlayer {
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
     }
 
+    func setApplicationIsActive(_ isActive: Bool) {
+        isApplicationActive = isActive
+
+        #if canImport(NowPlaying)
+        if #available(iOS 27.0, *) {
+            if !isActive {
+                nowPlayingPromotionGeneration &+= 1
+                nowPlayingPromotionTask?.cancel()
+                nowPlayingPromotionTask = nil
+                return
+            }
+        }
+        #endif
+
+        if isActive {
+            updateNowPlayingForCurrentOS()
+        }
+    }
+
     func updateNowPlayingForCurrentOS() {
         #if canImport(NowPlaying)
         if #available(iOS 27.0, *) {
+            guard isApplicationActive else { return }
             activateNowPlayingSession()
         } else {
             updateNowPlaying()
@@ -143,6 +163,7 @@ extension RadioAudioPlayer {
     func clearNowPlayingForCurrentOS() {
         #if canImport(NowPlaying)
         if #available(iOS 27.0, *) {
+            nowPlayingPromotionGeneration &+= 1
             nowPlayingPromotionTask?.cancel()
             nowPlayingPromotionTask = nil
             nowPlayingSessionStorage = nil
@@ -241,7 +262,7 @@ extension RadioAudioPlayer: MediaSessionRepresentable {
     // Keep one local session alive. Retry promotion after transient system failures, and
     // promote again on each fresh playback start in case another app became primary.
     func activateNowPlayingSession() {
-        guard currentStation != nil else { return }
+        guard currentStation != nil, isApplicationActive else { return }
 
         let session: MediaSession<RadioAudioPlayer>
         if let existing = nowPlayingSessionStorage as? MediaSession<RadioAudioPlayer> {
@@ -253,19 +274,23 @@ extension RadioAudioPlayer: MediaSessionRepresentable {
 
         guard nowPlayingPromotionTask == nil else { return }
 
+        nowPlayingPromotionGeneration &+= 1
+        let generation = nowPlayingPromotionGeneration
         nowPlayingPromotionTask = Task { [weak self] in
             var attempt = 0
 
             while !Task.isCancelled {
                 guard
                     let self,
+                    self.isApplicationActive,
                     self.currentStation != nil,
-                    self.nowPlayingSessionStorage === session
+                    self.nowPlayingSessionStorage === session,
+                    self.nowPlayingPromotionGeneration == generation
                 else { break }
 
                 do {
-                    try await session.requestToBecomeApplicationPrimary()
-                    Log.playback.debug("Now Playing session promoted to application primary")
+                    try await session.requestToBecomeSystemPrimary()
+                    Log.playback.debug("Now Playing session promoted to system primary")
                     break
                 } catch {
                     Log.playback.error(
@@ -282,7 +307,9 @@ extension RadioAudioPlayer: MediaSessionRepresentable {
                 }
             }
 
-            guard let self, self.nowPlayingSessionStorage === session else { return }
+            guard let self,
+                  self.nowPlayingSessionStorage === session,
+                  self.nowPlayingPromotionGeneration == generation else { return }
             self.nowPlayingPromotionTask = nil
         }
     }
